@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 minutes in Mumbai. For whom?</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #map { height: 100%; }
+  #panel {
+    position: absolute; z-index: 1000; top: 10px; left: 10px; width: 310px;
+    max-width: calc(100% - 20px); max-height: calc(100% - 20px); overflow: auto;
+    box-sizing: border-box; background: #fff; color: #1f2933;
+    padding: 14px 16px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.28);
+    font-size: 14px; line-height: 1.45;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; line-height: 1.2; }
+  p { margin: 0 0 10px; }
+  label { display: block; margin: 10px 0 2px; font-weight: 600; }
+  select, input[type=range], button { width: 100%; box-sizing: border-box; }
+  select, button { font: inherit; padding: 6px 8px; }
+  button { margin-top: 10px; cursor: pointer; }
+  .check { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-top: 12px; }
+  .check input { width: auto; }
+  #legend { height: 10px; border-radius: 5px; margin-top: 12px; }
+  #legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: #52606d; }
+  #grey { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #52606d; margin-top: 6px; }
+  #grey i { display: inline-block; width: 24px; height: 4px; background: #9aa0a6; border-radius: 2px; }
+  #status { min-height: 1.4em; color: #52606d; margin-top: 8px; }
+  small { display: block; color: #52606d; font-size: 12px; margin-top: 10px; }
+  a { color: #0b6e8a; }
+  :focus-visible { outline: 3px solid #1c7ed6; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <h1>15 minutes in Mumbai. For whom?</h1>
+  <p>Click the map or drag the marker. Coloured streets are what you can reach on foot with your settings.</p>
+
+  <label for="city">Start from</label>
+  <select id="city"></select>
+
+  <label for="min">Time budget: <span id="minv"></span> min</label>
+  <input type="range" id="min" min="5" max="20" step="1">
+
+  <label for="spd">Walking speed: <span id="spdv"></span> m/s</label>
+  <input type="range" id="spd" min="0.8" max="1.8" step="0.1">
+
+  <label class="check"><input type="checkbox" id="stairs"> Avoid stairs (step-free)</label>
+
+  <div id="legend"></div>
+  <div id="legend-labels"><span>0 min</span><span id="lmax"></span></div>
+  <div id="grey"><i></i> Reachable at 1.4 m/s with stairs, but not with your settings</div>
+
+  <div id="status"></div>
+  <button id="copy">Copy link to this view</button>
+
+  <small>Not included: public transport, slope, flooding, crowding, or obstructed footpaths. Street data comes from
+  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> and is incomplete in places, so some areas may look less connected than they are.</small>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const PRESETS = {
+  "Dadar": [19.0178, 72.8478],
+  "Churchgate": [18.9322, 72.8264],
+  "CSMT": [18.9398, 72.8355],
+  "Colaba": [18.9067, 72.8147],
+  "Bandra": [19.0544, 72.8402],
+  "Dharavi": [19.0433, 72.8553],
+  "Kurla": [19.0652, 72.8795],
+  "Ghatkopar": [19.0860, 72.9090],
+  "Andheri": [19.1197, 72.8468],
+  "Powai": [19.1176, 72.9060],
+  "Borivali": [19.2307, 72.8567]
+};
+const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"];
+const GREY = "#9aa0a6";
+const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+const $ = id => document.getElementById(id);
+
+// ---- state, restored from the link ----
+const q = new URLSearchParams(location.hash.slice(1));
+const st = {
+  lat: parseFloat(q.get("lat")) || 19.0178,
+  lng: parseFloat(q.get("lng")) || 72.8478,
+  min: parseInt(q.get("min")) || 15,
+  spd: parseFloat(q.get("spd")) || 1.4,
+  noStairs: q.get("st") === "1",
+  z: parseInt(q.get("z")) || 14
+};
+
+// ---- map ----
+const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([st.lat, st.lng], st.z);
+L.control.zoom({ position: "bottomright" }).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
+const marker = L.marker([st.lat, st.lng], { draggable: true }).addTo(map);
+const layers = L.layerGroup().addTo(map);
+
+// ---- controls ----
+$("city").innerHTML = '<option value="">Custom point</option>' +
+  Object.keys(PRESETS).map(n => `<option>${n}</option>`).join("");
+$("legend").style.background = "linear-gradient(to right," + COLORS.join(",") + ")";
+
+function sync() {
+  $("min").value = st.min; $("minv").textContent = st.min;
+  $("spd").value = st.spd; $("spdv").textContent = st.spd.toFixed(1);
+  $("stairs").checked = st.noStairs;
+  $("lmax").textContent = st.min + " min";
+}
+function writeHash() {
+  const p = new URLSearchParams({
+    lat: st.lat.toFixed(5), lng: st.lng.toFixed(5), min: st.min,
+    spd: st.spd, st: st.noStairs ? 1 : 0, z: map.getZoom()
+  });
+  history.replaceState(null, "", "#" + p.toString());
+}
+function status(t) { $("status").textContent = t; }
+function update() { sync(); writeHash(); load(); }
+
+function setPoint(lat, lng, keepPreset) {
+  st.lat = lat; st.lng = lng;
+  marker.setLatLng([lat, lng]);
+  if (!keepPreset) $("city").value = "";
+  update();
+}
+map.on("click", e => setPoint(e.latlng.lat, e.latlng.lng));
+marker.on("dragend", () => { const p = marker.getLatLng(); setPoint(p.lat, p.lng); });
+map.on("zoomend", writeHash);
+$("city").addEventListener("change", e => {
+  const c = PRESETS[e.target.value]; if (!c) return;
+  map.setView(c, 14); setPoint(c[0], c[1], true);
+});
+$("min").addEventListener("input", e => { $("minv").textContent = e.target.value; $("lmax").textContent = e.target.value + " min"; });
+$("min").addEventListener("change", e => { st.min = +e.target.value; update(); });
+$("spd").addEventListener("input", e => { st.spd = +e.target.value; update(); });
+$("stairs").addEventListener("change", e => { st.noStairs = e.target.checked; update(); });
+$("copy").addEventListener("click", () => {
+  const done = () => { $("copy").textContent = "Link copied"; setTimeout(() => $("copy").textContent = "Copy link to this view", 1800); };
+  if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, () => prompt("Copy this link:", location.href));
+  else prompt("Copy this link:", location.href);
+});
+
+// ---- street data (OpenStreetMap via Overpass) ----
+function hav(a, b, c, d) {
+  const t = Math.PI / 180, dl = (c - a) * t, dn = (d - b) * t;
+  const x = Math.sin(dl / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
+  return 12742000 * Math.asin(Math.sqrt(x));
+}
+async function fetchNet(lat, lng, r) {
+  const query = `[out:json][timeout:30];way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});out body;>;out skel qt;`;
+  let err;
+  for (const url of ENDPOINTS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST", body: "data=" + encodeURIComponent(query),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } catch (e) { err = e; }
+  }
+  throw err;
+}
+function build(j) {
+  const nodes = new Map(), adj = new Map(), segs = [];
+  for (const e of j.elements) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
+  for (const e of j.elements) {
+    if (e.type !== "way") continue;
+    const steps = e.tags && e.tags.highway === "steps";
+    for (let i = 0; i < e.nodes.length - 1; i++) {
+      const a = e.nodes[i], b = e.nodes[i + 1], pa = nodes.get(a), pb = nodes.get(b);
+      if (!pa || !pb) continue;
+      const len = hav(pa[0], pa[1], pb[0], pb[1]);
+      if (!adj.has(a)) adj.set(a, []);
+      if (!adj.has(b)) adj.set(b, []);
+      adj.get(a).push([b, len, steps]);
+      adj.get(b).push([a, len, steps]);
+      segs.push([a, b, steps]);
+    }
+  }
+  return { nodes, adj, segs };
+}
+
+// ---- shortest walking times (Dijkstra with a small binary heap) ----
+function dijkstra(g, src, spd, noStairs, limit) {
+  const dist = new Map([[src, 0]]), h = [[0, src]];
+  const push = x => {
+    h.push(x); let i = h.length - 1;
+    while (i > 0) { const p = (i - 1) >> 1; if (h[p][0] <= h[i][0]) break; [h[p], h[i]] = [h[i], h[p]]; i = p; }
+  };
+  const pop = () => {
+    const top = h[0], last = h.pop();
+    if (h.length) {
+      h[0] = last; let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < h.length && h[l][0] < h[m][0]) m = l;
+        if (r < h.length && h[r][0] < h[m][0]) m = r;
+        if (m === i) break;
+        [h[m], h[i]] = [h[i], h[m]]; i = m;
+      }
+    }
+    return top;
+  };
+  while (h.length) {
+    const [d, u] = pop();
+    if (d > dist.get(u)) continue;
+    for (const [v, len, s] of g.adj.get(u) || []) {
+      if (noStairs && s) continue;
+      const nd = d + len / spd;
+      if (nd <= limit && nd < (dist.has(v) ? dist.get(v) : Infinity)) { dist.set(v, nd); push([nd, v]); }
+    }
+  }
+  return dist;
+}
+function nearest(g, lat, lng) {
+  const k = Math.cos(lat * Math.PI / 180); let best = null, bd = Infinity;
+  for (const id of g.adj.keys()) {
+    const p = g.nodes.get(id), d = (p[0] - lat) ** 2 + ((p[1] - lng) * k) ** 2;
+    if (d < bd) { bd = d; best = id; }
+  }
+  return best;
+}
+
+// ---- draw ----
+let data = null, reqId = 0;
+function render() {
+  const g = data.g, T = st.min * 60;
+  layers.clearLayers();
+  const src = nearest(g, st.lat, st.lng);
+  if (src == null) { status("No walkable streets found here. Try another spot."); return; }
+  const me = dijkstra(g, src, st.spd, st.noStairs, T);
+  const base = dijkstra(g, src, 1.4, false, T);
+  const grey = [], bins = COLORS.map(() => []);
+  for (const [a, b, steps] of g.segs) {
+    const line = [g.nodes.get(a), g.nodes.get(b)];
+    const t = (st.noStairs && steps) ? Infinity
+      : Math.min(me.has(a) ? me.get(a) : Infinity, me.has(b) ? me.get(b) : Infinity);
+    if (t <= T) bins[Math.min(COLORS.length - 1, Math.floor(t / T * COLORS.length))].push(line);
+    else if (base.has(a) || base.has(b)) grey.push(line);
+  }
+  L.polyline(grey, { color: GREY, weight: 3, opacity: 0.85, interactive: false }).addTo(layers);
+  bins.forEach((lines, i) => L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95, interactive: false }).addTo(layers));
+  status("");
+}
+async function load() {
+  const id = ++reqId, r = Math.ceil(1.8 * st.min * 60) + 100;
+  if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
+  status("Loading street network…");
+  try {
+    const j = await fetchNet(st.lat, st.lng, r);
+    if (id !== reqId) return;
+    data = { lat: st.lat, lng: st.lng, r, g: build(j) };
+    render();
+  } catch (e) {
+    if (id === reqId) status("Could not load street data from OpenStreetMap. Wait a moment, then click the map again.");
+  }
+}
+
+sync();
+load();
+</script>
+</body>
+</html>
