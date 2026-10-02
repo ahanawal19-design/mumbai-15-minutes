@@ -89,7 +89,7 @@ const GREY = "#9aa0a6";
 const ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
   "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter"
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 ];
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString("en-IN");
@@ -164,63 +164,95 @@ $("copy").addEventListener("click", () => {
 // ---- street data (OpenStreetMap via Overpass) ----
 function hav(a, b, c, d) {
   const t = Math.PI / 180, dl = (c - a) * t, dn = (d - b) * t;
-  const x = Math.sin(dl / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
+  const x = Math.sin(dl / 2) ** 2 +
+    Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
   return 12742000 * Math.asin(Math.sqrt(x));
 }
-let activeController = null;
 
+/*
+  IMPORTANT:
+  We request way geometry directly with "out geom". The old version requested
+  way bodies and then downloaded every referenced node separately (">; out skel"),
+  which is much heavier and is the main reason the browser timed out.
+*/
 async function fetchNet(lat, lng, r) {
-  // Keep the query focused on walkable streets. The previous query also
-  // requested trunk/track data and then downloaded every referenced node,
-  // which can be slow for a ~1.7 km radius in Mumbai.
-  const query = `[out:json][timeout:60];way["highway"~"^(primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps)$"]["foot"!="no"]["access"!="private"](around:${Math.round(r)},${lat},${lng});out body;>;out skel qt;`;
-  let err;
+  const query =
+    `[out:json][timeout:45];` +
+    `way["highway"~"^(primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps)$"]` +
+    `["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});` +
+    `out geom;`;
 
-  if (activeController) activeController.abort();
+  let lastErr = null;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    for (const url of ENDPOINTS) {
-      const ctl = new AbortController();
-      activeController = ctl;
-      const timer = setTimeout(() => ctl.abort(), 55000);
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          body: "data=" + encodeURIComponent(query),
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          signal: ctl.signal
-        });
-        if (!res.ok) throw new Error("server replied " + res.status);
-        return await res.json();
-      } catch (e) {
-        if (e.name !== "AbortError") err = e;
-        else if (activeController !== ctl) throw e;
-      } finally {
-        clearTimeout(timer);
-        if (activeController === ctl) activeController = null;
+  for (const url of ENDPOINTS) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 50000);
+
+    try {
+      // Overpass supports browser POST requests and CORS.
+      const res = await fetch(url, {
+        method: "POST",
+        body: "data=" + encodeURIComponent(query),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        signal: ctl.signal,
+        cache: "no-store"
+      });
+
+      if (!res.ok) throw new Error("server replied " + res.status);
+
+      const j = await res.json();
+      if (!j || !Array.isArray(j.elements)) {
+        throw new Error("invalid Overpass response");
       }
+      return j;
+    } catch (e) {
+      lastErr = e;
+    } finally {
+      clearTimeout(timer);
     }
-    await new Promise(done => setTimeout(done, 1500));
   }
-  throw err || new Error("Overpass request timed out");
+
+  throw lastErr || new Error("all Overpass servers failed");
 }
+
+/*
+  "out geom" gives coordinates instead of OSM node IDs.
+  We turn each unique coordinate into a graph node. Shared OSM
+  intersections therefore reconnect automatically.
+*/
 function build(j) {
   const nodes = new Map(), adj = new Map(), segs = [];
-  for (const e of j.elements) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
+  const key = (p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`;
+
+  function ensure(p) {
+    const k = key(p);
+    if (!nodes.has(k)) {
+      nodes.set(k, [p.lat, p.lon]);
+      adj.set(k, []);
+    }
+    return k;
+  }
+
   for (const e of j.elements) {
-    if (e.type !== "way") continue;
+    if (e.type !== "way" || !Array.isArray(e.geometry) || e.geometry.length < 2) continue;
+
     const steps = e.tags && e.tags.highway === "steps";
-    for (let i = 0; i < e.nodes.length - 1; i++) {
-      const a = e.nodes[i], b = e.nodes[i + 1], pa = nodes.get(a), pb = nodes.get(b);
-      if (!pa || !pb) continue;
-      const len = hav(pa[0], pa[1], pb[0], pb[1]);
-      if (!adj.has(a)) adj.set(a, []);
-      if (!adj.has(b)) adj.set(b, []);
+
+    // Defensive client-side filtering in case an endpoint interprets tags differently.
+    if (e.tags && (e.tags.foot === "no" || e.tags.access === "private")) continue;
+
+    for (let i = 0; i < e.geometry.length - 1; i++) {
+      const pa = e.geometry[i], pb = e.geometry[i + 1];
+      const a = ensure(pa), b = ensure(pb);
+      if (a === b) continue;
+
+      const len = hav(pa.lat, pa.lon, pb.lat, pb.lon);
       adj.get(a).push([b, len, steps]);
       adj.get(b).push([a, len, steps]);
       segs.push([a, b, steps, len]);
     }
   }
+
   return { nodes, adj, segs };
 }
 
@@ -308,10 +340,7 @@ function render() {
   status(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
 }
 async function load() {
-  const id = ++reqId;
-  // Maximum possible walking distance: 15 min at 1.8 m/s, plus a small
-  // buffer so the nearest connected street can still be found.
-  const r = 1.8 * 15 * 60 + 100;
+  const id = ++reqId, r = 1.8 * 15 * 60 + 150;
   if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
   layers.clearLayers();
   $("reach").textContent = "…";
@@ -322,7 +351,7 @@ async function load() {
     data = { lat: st.lat, lng: st.lng, r, g: build(j) };
     render();
   } catch (e) {
-    if (id === reqId) status("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Wait a moment, then pick the place again.");
+    if (id === reqId) status("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Try again or choose another point.");
   }
 }
 
