@@ -86,7 +86,11 @@ const PRESETS = {
 };
 const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"];
 const GREY = "#9aa0a6";
-const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+const ENDPOINTS = [
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter"
+];
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString("en-IN");
 
@@ -148,7 +152,8 @@ $("city").addEventListener("change", e => {
 });
 $("min").addEventListener("input", e => { st.min = +e.target.value; sync(); });
 $("min").addEventListener("change", e => { st.min = +e.target.value; update(); });
-$("spd").addEventListener("input", e => { st.spd = +e.target.value; update(); });
+$("spd").addEventListener("input", e => { st.spd = +e.target.value; sync(); });
+$("spd").addEventListener("change", e => { st.spd = +e.target.value; update(); });
 $("stairs").addEventListener("change", e => { st.noStairs = e.target.checked; update(); });
 $("copy").addEventListener("click", () => {
   const done = () => { $("copy").textContent = "Link copied"; setTimeout(() => $("copy").textContent = "Copy link to this view", 1800); };
@@ -162,26 +167,42 @@ function hav(a, b, c, d) {
   const x = Math.sin(dl / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
   return 12742000 * Math.asin(Math.sqrt(x));
 }
+let activeController = null;
+
 async function fetchNet(lat, lng, r) {
-  const query = `[out:json][timeout:30];way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});out body;>;out skel qt;`;
+  // Keep the query focused on walkable streets. The previous query also
+  // requested trunk/track data and then downloaded every referenced node,
+  // which can be slow for a ~1.7 km radius in Mumbai.
+  const query = `[out:json][timeout:60];way["highway"~"^(primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps)$"]["foot"!="no"]["access"!="private"](around:${Math.round(r)},${lat},${lng});out body;>;out skel qt;`;
   let err;
+
+  if (activeController) activeController.abort();
+
   for (let attempt = 0; attempt < 2; attempt++) {
     for (const url of ENDPOINTS) {
-      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+      const ctl = new AbortController();
+      activeController = ctl;
+      const timer = setTimeout(() => ctl.abort(), 55000);
       try {
         const res = await fetch(url, {
-          method: "POST", body: "data=" + encodeURIComponent(query),
+          method: "POST",
+          body: "data=" + encodeURIComponent(query),
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           signal: ctl.signal
         });
         if (!res.ok) throw new Error("server replied " + res.status);
         return await res.json();
-      } catch (e) { err = e; }
-      finally { clearTimeout(timer); }
+      } catch (e) {
+        if (e.name !== "AbortError") err = e;
+        else if (activeController !== ctl) throw e;
+      } finally {
+        clearTimeout(timer);
+        if (activeController === ctl) activeController = null;
+      }
     }
-    await new Promise(done => setTimeout(done, 3000));
+    await new Promise(done => setTimeout(done, 1500));
   }
-  throw err;
+  throw err || new Error("Overpass request timed out");
 }
 function build(j) {
   const nodes = new Map(), adj = new Map(), segs = [];
@@ -287,7 +308,10 @@ function render() {
   status(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
 }
 async function load() {
-  const id = ++reqId, r = 1.8 * 15 * 60 + 100;
+  const id = ++reqId;
+  // Maximum possible walking distance: 15 min at 1.8 m/s, plus a small
+  // buffer so the nearest connected street can still be found.
+  const r = 1.8 * 15 * 60 + 100;
   if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
   layers.clearLayers();
   $("reach").textContent = "…";
