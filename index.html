@@ -27,7 +27,10 @@
   #legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: #52606d; }
   #grey { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #52606d; margin-top: 6px; }
   #grey i { display: inline-block; width: 24px; height: 4px; background: #9aa0a6; border-radius: 2px; }
-  #status { min-height: 1.4em; color: #52606d; margin-top: 8px; }
+  #status { color: #52606d; margin: 0 0 10px; }
+  #status:empty { display: none; }
+  #stats { margin-top: 12px; }
+  #stats div + div { margin-top: 2px; }
   small { display: block; color: #52606d; font-size: 12px; margin-top: 10px; }
   a { color: #0b6e8a; }
   :focus-visible { outline: 3px solid #1c7ed6; outline-offset: 2px; }
@@ -39,12 +42,13 @@
 <div id="panel">
   <h1>15 minutes in Mumbai. For whom?</h1>
   <p>Click the map or drag the marker. Coloured streets are what you can reach on foot with your settings.</p>
+  <div id="status" role="status"></div>
 
   <label for="city">Start from</label>
   <select id="city"></select>
 
   <label for="min">Time budget: <span id="minv"></span> min</label>
-  <input type="range" id="min" min="5" max="20" step="1">
+  <input type="range" id="min" min="5" max="15" step="1">
 
   <label for="spd">Walking speed: <span id="spdv"></span> m/s</label>
   <input type="range" id="spd" min="0.8" max="1.8" step="0.1">
@@ -55,7 +59,10 @@
   <div id="legend-labels"><span>0 min</span><span id="lmax"></span></div>
   <div id="grey"><i></i> Reachable at 1.4 m/s with stairs, but not with your settings</div>
 
-  <div id="status"></div>
+  <div id="stats">
+    <div><strong id="walked"></strong> walked in <span id="statmin"></span> min</div>
+    <div><strong id="reach">…</strong> of streets within reach</div>
+  </div>
   <button id="copy">Copy link to this view</button>
 
   <small>Not included: public transport, slope, flooding, crowding, or obstructed footpaths. Street data comes from
@@ -81,13 +88,14 @@ const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"
 const GREY = "#9aa0a6";
 const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("en-IN");
 
 // ---- state, restored from the link ----
 const q = new URLSearchParams(location.hash.slice(1));
 const st = {
   lat: parseFloat(q.get("lat")) || 19.0178,
   lng: parseFloat(q.get("lng")) || 72.8478,
-  min: parseInt(q.get("min")) || 15,
+  min: Math.min(15, Math.max(5, parseInt(q.get("min")) || 15)),
   spd: parseFloat(q.get("spd")) || 1.4,
   noStairs: q.get("st") === "1",
   z: parseInt(q.get("z")) || 14
@@ -112,6 +120,8 @@ function sync() {
   $("spd").value = st.spd; $("spdv").textContent = st.spd.toFixed(1);
   $("stairs").checked = st.noStairs;
   $("lmax").textContent = st.min + " min";
+  $("statmin").textContent = st.min;
+  $("walked").textContent = fmt(Math.round(st.spd * st.min * 60)) + " m";
 }
 function writeHash() {
   const p = new URLSearchParams({
@@ -136,7 +146,7 @@ $("city").addEventListener("change", e => {
   const c = PRESETS[e.target.value]; if (!c) return;
   map.setView(c, 14); setPoint(c[0], c[1], true);
 });
-$("min").addEventListener("input", e => { $("minv").textContent = e.target.value; $("lmax").textContent = e.target.value + " min"; });
+$("min").addEventListener("input", e => { st.min = +e.target.value; sync(); });
 $("min").addEventListener("change", e => { st.min = +e.target.value; update(); });
 $("spd").addEventListener("input", e => { st.spd = +e.target.value; update(); });
 $("stairs").addEventListener("change", e => { st.noStairs = e.target.checked; update(); });
@@ -155,15 +165,21 @@ function hav(a, b, c, d) {
 async function fetchNet(lat, lng, r) {
   const query = `[out:json][timeout:30];way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});out body;>;out skel qt;`;
   let err;
-  for (const url of ENDPOINTS) {
-    try {
-      const res = await fetch(url, {
-        method: "POST", body: "data=" + encodeURIComponent(query),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
-    } catch (e) { err = e; }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    for (const url of ENDPOINTS) {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+      try {
+        const res = await fetch(url, {
+          method: "POST", body: "data=" + encodeURIComponent(query),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          signal: ctl.signal
+        });
+        if (!res.ok) throw new Error("server replied " + res.status);
+        return await res.json();
+      } catch (e) { err = e; }
+      finally { clearTimeout(timer); }
+    }
+    await new Promise(done => setTimeout(done, 3000));
   }
   throw err;
 }
@@ -181,7 +197,7 @@ function build(j) {
       if (!adj.has(b)) adj.set(b, []);
       adj.get(a).push([b, len, steps]);
       adj.get(b).push([a, len, steps]);
-      segs.push([a, b, steps]);
+      segs.push([a, b, steps, len]);
     }
   }
   return { nodes, adj, segs };
@@ -219,9 +235,27 @@ function dijkstra(g, src, spd, noStairs, limit) {
   }
   return dist;
 }
-function nearest(g, lat, lng) {
+// Start from the nearest street that belongs to the main connected network,
+// so a point near a station or a stray footpath doesn't start on an isolated fragment.
+function startNode(g, lat, lng, noStairs) {
+  const comp = new Map(), sizes = [];
+  for (const s0 of g.adj.keys()) {
+    if (comp.has(s0)) continue;
+    const id = sizes.length, stack = [s0]; let n = 0;
+    comp.set(s0, id);
+    while (stack.length) {
+      const u = stack.pop(); n++;
+      for (const [v, , steps] of g.adj.get(u)) {
+        if (noStairs && steps) continue;
+        if (!comp.has(v)) { comp.set(v, id); stack.push(v); }
+      }
+    }
+    sizes.push(n);
+  }
+  const minSize = sizes.reduce((a, b) => Math.max(a, b), 0) * 0.1;
   const k = Math.cos(lat * Math.PI / 180); let best = null, bd = Infinity;
-  for (const id of g.adj.keys()) {
+  for (const [id, c] of comp) {
+    if (sizes[c] < minSize) continue;
     const p = g.nodes.get(id), d = (p[0] - lat) ** 2 + ((p[1] - lng) * k) ** 2;
     if (d < bd) { bd = d; best = id; }
   }
@@ -233,25 +267,30 @@ let data = null, reqId = 0;
 function render() {
   const g = data.g, T = st.min * 60;
   layers.clearLayers();
-  const src = nearest(g, st.lat, st.lng);
-  if (src == null) { status("No walkable streets found here. Try another spot."); return; }
+  const src = startNode(g, st.lat, st.lng, st.noStairs);
+  if (src == null) { $("reach").textContent = "0 m"; status("No walkable streets found here. Try another spot."); return; }
   const me = dijkstra(g, src, st.spd, st.noStairs, T);
   const base = dijkstra(g, src, 1.4, false, T);
   const grey = [], bins = COLORS.map(() => []);
-  for (const [a, b, steps] of g.segs) {
+  let reachM = 0;
+  for (const [a, b, steps, len] of g.segs) {
     const line = [g.nodes.get(a), g.nodes.get(b)];
     const t = (st.noStairs && steps) ? Infinity
       : Math.min(me.has(a) ? me.get(a) : Infinity, me.has(b) ? me.get(b) : Infinity);
-    if (t <= T) bins[Math.min(COLORS.length - 1, Math.floor(t / T * COLORS.length))].push(line);
+    if (t <= T) { bins[Math.min(COLORS.length - 1, Math.floor(t / T * COLORS.length))].push(line); reachM += len; }
     else if (base.has(a) || base.has(b)) grey.push(line);
   }
   L.polyline(grey, { color: GREY, weight: 3, opacity: 0.85, interactive: false }).addTo(layers);
   bins.forEach((lines, i) => L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95, interactive: false }).addTo(layers));
-  status("");
+  $("reach").textContent = fmt(Math.round(reachM)) + " m";
+  const sp = g.nodes.get(src), off = Math.round(hav(st.lat, st.lng, sp[0], sp[1]));
+  status(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
 }
 async function load() {
-  const id = ++reqId, r = Math.ceil(1.8 * st.min * 60) + 100;
+  const id = ++reqId, r = 1.8 * 15 * 60 + 100;
   if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
+  layers.clearLayers();
+  $("reach").textContent = "…";
   status("Loading street network…");
   try {
     const j = await fetchNet(st.lat, st.lng, r);
@@ -259,7 +298,7 @@ async function load() {
     data = { lat: st.lat, lng: st.lng, r, g: build(j) };
     render();
   } catch (e) {
-    if (id === reqId) status("Could not load street data from OpenStreetMap. Wait a moment, then click the map again.");
+    if (id === reqId) status("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Wait a moment, then pick the place again.");
   }
 }
 
