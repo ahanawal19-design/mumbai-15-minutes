@@ -2117,18 +2117,16 @@ $("elev-layer").addEventListener(
 ============================================================ */
 
 /*
- * Official Government of India Open Government Data resource:
- * "Real time Air Quality Index from various locations"
- * published by the Central Pollution Control Board (CPCB).
+ * IMPORTANT:
  *
- * The resource provides current station-level pollutant readings.
- * We group the readings by station, calculate the CPCB AQI using
- * CPCB's published breakpoint/interpolation method, and show the
- * nearest station to the selected map point.
+ * The official data.gov.in CPCB resource contains the live pollutant
+ * readings, but it does NOT return station latitude/longitude in the
+ * API rows. Therefore we keep a small Mumbai station-coordinate list
+ * locally and use the Government API only for the live measurements.
  *
- * A data.gov.in API key is required. It is stored only in the
- * browser's localStorage and is never sent anywhere except the
- * official api.data.gov.in endpoint.
+ * This means the browser only asks data.gov.in for ONE station at a
+ * time — the station nearest the user's selected map point. That is
+ * also small enough to work with data.gov.in's public sample key.
  */
 
 const CPCB_DATA_API =
@@ -2143,6 +2141,10 @@ const CPCB_PORTAL_URL =
 const CPCB_API_KEY_STORAGE =
   "mumbai15_cpcb_datagov_api_key";
 
+/* Public sample key supplied for experimentation by data.gov.in. */
+const CPCB_SAMPLE_KEY =
+  "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b";
+
 const AQ_REFRESH =
   60 * 60 * 1000;
 
@@ -2152,67 +2154,51 @@ let aqStation = null;
 
 
 /* ------------------------------------------------------------
-   Mumbai station coordinates
+   Mumbai government monitoring stations
 
-   The data.gov.in real-time resource contains station names and live
-   pollutant values, but its API response does not include latitude/longitude.
-   These coordinates are from Maharashtra Pollution Control Board's published
-   Mumbai CAAQMS station documentation and are used only to locate the nearest
-   station on the map. The live readings themselves remain CPCB/data.gov.in.
+   Names match CPCB/data.gov.in station names. Coordinates are used
+   only to identify the nearest station; the AQI readings themselves
+   always come from the CPCB feed above.
 ------------------------------------------------------------ */
 
-const MUMBAI_STATIONS = [
-  { name: "Airport", lat: 19.100400, lng: 72.876300 },
-  { name: "Bandra", lat: 19.063083, lng: 72.846444 },
-  { name: "Borivali", lat: 19.245600, lng: 72.865100 },
-  { name: "Colaba", lat: 18.907800, lng: 72.819900 },
-  { name: "Kandivali", lat: 19.204460, lng: 72.865000 },
-  { name: "Kurla", lat: 19.086300, lng: 72.888800 },
-  { name: "Mulund", lat: 19.175100, lng: 72.942000 },
-  { name: "Powai", lat: 19.133400, lng: 72.912800 },
-  { name: "Sion", lat: 19.035528, lng: 72.859806 },
-  { name: "Vile Parle", lat: 19.109500, lng: 72.835300 },
-  { name: "Worli", lat: 18.926000, lng: 72.485333 },
-  { name: "K. J. Somaiya Hospital", lat: 19.073500, lng: 72.899500 },
-  { name: "RCF", lat: 19.017000, lng: 72.891000 },
-  { name: "Asian Heart Institute", lat: 19.064000, lng: 72.861000 },
-  { name: "Malad", lat: 19.175000, lng: 72.836000 }
-];
-
-function cleanStationName(name) {
-  return String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\b(mumbai|maharashtra|mpcb|cpcb|aqms|caaqms)\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function stationCoordinates(name) {
-  const n = cleanStationName(name);
-  let best = null;
-  let bestScore = 0;
-
-  for (const station of MUMBAI_STATIONS) {
-    const s = cleanStationName(station.name);
-    if (!s) continue;
-    if (n === s) return station;
-
-    const words = s.split(" ").filter(Boolean);
-    const score = words.filter(w => n.includes(w)).length / words.length;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = station;
-    }
-  }
-
-  return bestScore >= 0.5 ? best : null;
-}
+const MUMBAI_CPCB_STATIONS = [
+  ["Bandra, Mumbai - MPCB", 19.0627, 72.84614],
+  ["Kurla, Mumbai - MPCB", 19.0863, 72.8888],
+  ["Vile Parle West, Mumbai - MPCB", 19.10861, 72.83622],
+  ["Chhatrapati Shivaji Intl. Airport (T2), Mumbai - MPCB", 19.10078, 72.87462],
+  ["Powai, Mumbai - MPCB", 19.1375, 72.915056],
+  ["Borivali East, Mumbai - MPCB", 19.2243333, 72.8658113],
+  ["Worli, Mumbai - MPCB", 18.9936162, 72.8128113],
+  ["Sion, Mumbai - MPCB", 19.047, 72.8746],
+  ["Colaba, Mumbai - MPCB", 18.91, 72.82],
+  ["Kandivali East, Mumbai - MPCB", 19.2058, 72.8682],
+  ["Mulund West, Mumbai - MPCB", 19.175, 72.9419],
+  ["Bandra Kurla Complex, Mumbai - IITM", 19.053536, 72.84643],
+  ["Mazgaon, Mumbai - IITM", 18.96702, 72.84214],
+  ["Deonar, Mumbai - IITM", 19.04946, 72.923],
+  ["Khindipada-Bhandup West, Mumbai - IITM", 19.1653323, 72.922099],
+  ["Navy Nagar-Colaba, Mumbai - IITM", 18.897756, 72.81332],
+  ["Chakala-Andheri East, Mumbai - IITM", 19.11074, 72.86084],
+  ["Borivali East, Mumbai - IITM", 19.23241, 72.86895],
+  ["Malad West, Mumbai - IITM", 19.19709, 72.82204],
+  ["Siddharth Nagar-Worli, Mumbai - IITM", 19.000083, 72.813993],
+  ["Mindspace-Malad West, Mumbai - MPCB", 19.1878657, 72.8304069],
+  ["Bandra Kurla Complex, Mumbai - MPCB", 19.065931, 72.862131],
+  ["Chembur, Mumbai - MPCB", 19.0364585, 72.8954371],
+  ["Kherwadi_Bandra East, Mumbai - MPCB", 19.0632143, 72.8456324],
+  ["Byculla, Mumbai - BMC", 18.9766, 72.8333],
+  ["Shivaji Nagar, Mumbai - BMC", 19.0556, 72.922],
+  ["Kandivali West, Mumbai - BMC", 19.208, 72.832],
+  ["Sewri, Mumbai - BMC", 18.997, 72.854]
+].map(([station, latitude, longitude]) => ({
+  station,
+  latitude,
+  longitude
+}));
 
 
 /* ------------------------------------------------------------
-   AQI colour/category — CPCB India AQI scale
+   CPCB AQI colour/category
 ------------------------------------------------------------ */
 
 function aqCategory(aqi) {
@@ -2221,115 +2207,39 @@ function aqCategory(aqi) {
     return ["Unavailable", "#e9ecef", "#212529"];
   }
 
-  if (aqi <= 50) return ["Good", "#2b8a3e", "#fff"];
-  if (aqi <= 100) return ["Satisfactory", "#8ab17d", "#212529"];
-  if (aqi <= 200) return ["Moderate", "#e9c46a", "#212529"];
-  if (aqi <= 300) return ["Poor", "#f4a261", "#212529"];
-  if (aqi <= 400) return ["Very Poor", "#e76f51", "#fff"];
+  if (aqi <= 50) {
+    return ["Good", "#2b8a3e", "#fff"];
+  }
+
+  if (aqi <= 100) {
+    return ["Satisfactory", "#8ab17d", "#212529"];
+  }
+
+  if (aqi <= 200) {
+    return ["Moderate", "#e9c46a", "#212529"];
+  }
+
+  if (aqi <= 300) {
+    return ["Poor", "#f4a261", "#212529"];
+  }
+
+  if (aqi <= 400) {
+    return ["Very Poor", "#e76f51", "#fff"];
+  }
+
   return ["Severe", "#c92a2a", "#fff"];
 }
 
 
 /* ------------------------------------------------------------
-   Safe numeric extraction
------------------------------------------------------------- */
-
-function firstValue(obj, keys) {
-
-  for (const key of keys) {
-
-    if (
-      obj &&
-      obj[key] != null &&
-      obj[key] !== ""
-    ) {
-
-      const n = Number(obj[key]);
-
-      if (!isNaN(n)) return n;
-    }
-  }
-
-  return null;
-}
-
-
-/* ------------------------------------------------------------
-   Station fields from data.gov.in
------------------------------------------------------------- */
-
-function stationLat(s) {
-  return firstValue(s, [
-    "latitude", "lat", "Latitude", "LAT"
-  ]);
-}
-
-function stationLng(s) {
-  return firstValue(s, [
-    "longitude", "lng", "lon", "long", "Longitude", "LON"
-  ]);
-}
-
-function stationName(s) {
-  return (
-    s.station ||
-    s.station_name ||
-    s.stationName ||
-    s.siteName ||
-    s.location ||
-    s.name ||
-    "CPCB monitoring station"
-  );
-}
-
-function stationUpdated(s) {
-  return (
-    s.last_update ||
-    s.lastUpdate ||
-    s.time_stamp ||
-    s.timestamp ||
-    s.updated_at ||
-    s.updatedAt ||
-    null
-  );
-}
-
-function stationId(s) {
-  return String(
-    s.id ||
-    s.station_id ||
-    s.stationID ||
-    s.site_id ||
-    stationName(s)
-  );
-}
-
-function pollutantId(s) {
-  return String(
-    s.pollutant_id ||
-    s.pollutantId ||
-    s.pollutant ||
-    ""
-  ).trim().toUpperCase();
-}
-
-function pollutantAverage(s) {
-  return firstValue(s, [
-    "pollutant_avg",
-    "pollutantAvg",
-    "avg",
-    "average",
-    "value"
-  ]);
-}
-
-
-/* ------------------------------------------------------------
-   API key UI
+   API helpers
 ------------------------------------------------------------ */
 
 function getCPCBApiKey() {
-  return (localStorage.getItem(CPCB_API_KEY_STORAGE) || "").trim();
+  return (
+    localStorage.getItem(CPCB_API_KEY_STORAGE) ||
+    CPCB_SAMPLE_KEY
+  ).trim();
 }
 
 function setCPCBApiKey(value) {
@@ -2345,19 +2255,28 @@ function setCPCBApiKey(value) {
   return key;
 }
 
+function escapeHTML(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function renderAQKeySetup(message) {
 
-  const existing = getCPCBApiKey();
+  const existing =
+    localStorage.getItem(CPCB_API_KEY_STORAGE) || "";
 
   $("aq-body").innerHTML = `
     <div class="aq-error">
-      ${message || "A data.gov.in API key is required to load CPCB readings."}
+      ${escapeHTML(message || "CPCB data.gov.in access needs an API key.")}
     </div>
 
     <div class="hint" style="margin-top:8px">
-      Get a free API key by creating/logging into a
-      <a href="https://www.data.gov.in/" target="_blank" rel="noopener">data.gov.in</a>
-      account, then open your account/dashboard and API key section.
+      The Government sample key is tried automatically. If it has expired,
+      paste your own free data.gov.in API key below.
     </div>
 
     <input
@@ -2365,7 +2284,7 @@ function renderAQKeySetup(message) {
       type="password"
       autocomplete="off"
       placeholder="Paste your data.gov.in API key"
-      value="${existing.replace(/"/g, "&quot;")}"
+      value="${escapeHTML(existing)}"
       style="width:100%;box-sizing:border-box;margin-top:8px;padding:6px 8px;font:inherit"
     >
 
@@ -2374,15 +2293,17 @@ function renderAQKeySetup(message) {
     </button>
 
     <div class="aq-source" style="margin-top:8px">
-      Source:
       <a href="${CPCB_DATASET_URL}" target="_blank" rel="noopener">
-        CPCB real-time AQI dataset on data.gov.in
+        Government of India data.gov.in
       </a>
     </div>
   `;
 
   $("cpcb-key-save").addEventListener("click", () => {
-    const key = setCPCBApiKey($("cpcb-key-input").value);
+
+    const key = setCPCBApiKey(
+      $("cpcb-key-input").value
+    );
 
     if (!key) {
       renderAQKeySetup("Please enter your data.gov.in API key.");
@@ -2394,12 +2315,28 @@ function renderAQKeySetup(message) {
 }
 
 
-/* ------------------------------------------------------------
-   CPCB AQI calculation
+function distanceKm(lat1, lon1, lat2, lon2) {
+  return hav(lat1, lon1, lat2, lon2) / 1000;
+}
 
-   CPCB's method uses a linear interpolation between the
-   concentration breakpoints and AQI breakpoints. The highest
-   valid pollutant sub-index becomes the station AQI.
+function nearestMumbaiStation(lat, lng) {
+
+  return MUMBAI_CPCB_STATIONS
+    .map(station => ({
+      ...station,
+      distance: distanceKm(
+        lat,
+        lng,
+        station.latitude,
+        station.longitude
+      )
+    }))
+    .sort((a, b) => a.distance - b.distance)[0] || null;
+}
+
+
+/* ------------------------------------------------------------
+   CPCB AQI breakpoint table
 ------------------------------------------------------------ */
 
 const CPCB_BREAKPOINTS = {
@@ -2410,7 +2347,7 @@ const CPCB_BREAKPOINTS = {
     [101, 250, 101, 200],
     [251, 350, 201, 300],
     [351, 430, 301, 400],
-    [430, Infinity, 401, 500]
+    [431, Infinity, 401, 500]
   ],
 
   PM2_5: [
@@ -2419,7 +2356,7 @@ const CPCB_BREAKPOINTS = {
     [61, 90, 101, 200],
     [91, 120, 201, 300],
     [121, 250, 301, 400],
-    [250, Infinity, 401, 500]
+    [251, Infinity, 401, 500]
   ],
 
   NO2: [
@@ -2428,7 +2365,7 @@ const CPCB_BREAKPOINTS = {
     [81, 180, 101, 200],
     [181, 280, 201, 300],
     [281, 400, 301, 400],
-    [400, Infinity, 401, 500]
+    [401, Infinity, 401, 500]
   ],
 
   O3: [
@@ -2437,7 +2374,7 @@ const CPCB_BREAKPOINTS = {
     [101, 168, 101, 200],
     [169, 208, 201, 300],
     [209, 748, 301, 400],
-    [748, Infinity, 401, 500]
+    [749, Infinity, 401, 500]
   ],
 
   CO: [
@@ -2446,7 +2383,7 @@ const CPCB_BREAKPOINTS = {
     [2.1, 10, 101, 200],
     [10.1, 17, 201, 300],
     [17.1, 34, 301, 400],
-    [34, Infinity, 401, 500]
+    [34.1, Infinity, 401, 500]
   ],
 
   SO2: [
@@ -2455,7 +2392,7 @@ const CPCB_BREAKPOINTS = {
     [81, 380, 101, 200],
     [381, 800, 201, 300],
     [801, 1600, 301, 400],
-    [1600, Infinity, 401, 500]
+    [1601, Infinity, 401, 500]
   ],
 
   NH3: [
@@ -2464,7 +2401,7 @@ const CPCB_BREAKPOINTS = {
     [401, 800, 101, 200],
     [801, 1200, 201, 300],
     [1201, 1800, 301, 400],
-    [1800, Infinity, 401, 500]
+    [1801, Infinity, 401, 500]
   ]
 };
 
@@ -2495,14 +2432,11 @@ function pollutantSubIndex(pollutant, concentration) {
   ) return null;
 
   const ranges = CPCB_BREAKPOINTS[pollutant];
-
   if (!ranges) return null;
 
   for (const [clow, chigh, ilow, ihigh] of ranges) {
 
     if (concentration >= clow && concentration <= chigh) {
-
-      if (chigh === clow) return ihigh;
 
       const value =
         ((ihigh - ilow) / (chigh - clow)) *
@@ -2523,12 +2457,15 @@ function calculateStationAQI(records) {
   for (const record of records) {
 
     const pollutant = normalizePollutant(
-      pollutantId(record)
+      record.pollutant_id
     );
 
-    const value = pollutantAverage(record);
+    const value = Number(record.pollutant_avg);
 
-    if (!pollutant || value == null) continue;
+    if (
+      !pollutant ||
+      !isFinite(value)
+    ) continue;
 
     values[pollutant] = value;
   }
@@ -2551,22 +2488,22 @@ function calculateStationAQI(records) {
     }
   }
 
-  const hasParticle =
-    values.PM10 != null ||
-    values.PM2_5 != null;
-
-  /* CPCB requires at least 3 pollutants, including PM10 or PM2.5. */
-  if (subIndices.length < 3 || !hasParticle) {
+  /* CPCB composite AQI requires at least 3 pollutants,
+     including at least one particulate pollutant. */
+  if (
+    subIndices.length < 3 ||
+    (values.PM10 == null && values.PM2_5 == null)
+  ) {
     return {
       aqi: null,
+      prominent: null,
       subIndices,
       values
     };
   }
 
   const worst = subIndices.reduce(
-    (a, b) =>
-      b.subIndex > a.subIndex ? b : a
+    (a, b) => b.subIndex > a.subIndex ? b : a
   );
 
   return {
@@ -2579,10 +2516,10 @@ function calculateStationAQI(records) {
 
 
 /* ------------------------------------------------------------
-   Fetch station readings from data.gov.in
+   Fetch LIVE CPCB readings for the nearest station only
 ------------------------------------------------------------ */
 
-async function fetchCPCBRecords() {
+async function fetchStationRecords(station) {
 
   const apiKey = getCPCBApiKey();
 
@@ -2595,22 +2532,43 @@ async function fetchCPCBRecords() {
 
   params.set("api-key", apiKey);
   params.set("format", "json");
-  params.set("limit", "500");
+  params.set("limit", "10");
+  params.set("offset", "0");
   params.set("filters[state]", "Maharashtra");
   params.set("filters[city]", "Mumbai");
+  params.set("filters[station]", station.station);
 
-  const res = await fetch(
-    CPCB_DATA_API + "?" + params.toString(),
-    {
+  const url = CPCB_DATA_API + "?" + params.toString();
+
+  let res;
+
+  try {
+
+    res = await fetch(url, {
       method: "GET",
+      mode: "cors",
       headers: {
         "Accept": "application/json"
       },
       cache: "no-store"
-    }
-  );
+    });
+
+  } catch (e) {
+
+    throw new Error(
+      "Your browser could not reach data.gov.in. " +
+      "Please make sure the site is being opened over HTTPS."
+    );
+  }
 
   if (!res.ok) {
+
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        "data.gov.in rejected the API key (" + res.status + ")."
+      );
+    }
+
     throw new Error(
       "data.gov.in replied " + res.status
     );
@@ -2620,7 +2578,7 @@ async function fetchCPCBRecords() {
 
   if (!Array.isArray(json.records)) {
     throw new Error(
-      "The government API returned no station records."
+      "data.gov.in returned an unexpected response."
     );
   }
 
@@ -2629,121 +2587,47 @@ async function fetchCPCBRecords() {
 
 
 /* ------------------------------------------------------------
-   Group pollutant rows into station objects
------------------------------------------------------------- */
-
-function buildStationReadings(records) {
-
-  const groups = new Map();
-
-  for (const record of records) {
-
-    const name = stationName(record);
-    const coords = stationCoordinates(name);
-
-    if (!coords) continue;
-
-    const id = stationId(record);
-
-    if (!groups.has(id)) {
-      groups.set(id, {
-        id,
-        station: name,
-        latitude: coords.lat,
-        longitude: coords.lng,
-        last_update: stationUpdated(record),
-        records: []
-      });
-    }
-
-    const station = groups.get(id);
-
-    station.records.push(record);
-
-    const updated = stationUpdated(record);
-
-    if (updated) {
-      station.last_update = updated;
-    }
-  }
-
-  const stations = [];
-
-  for (const station of groups.values()) {
-
-    const result = calculateStationAQI(
-      station.records
-    );
-
-    stations.push({
-      ...station,
-      aqi: result.aqi,
-      prominent: result.prominent || null,
-      subIndices: result.subIndices,
-      values: result.values
-    });
-  }
-
-  return stations;
-}
-
-
-/* ------------------------------------------------------------
-   Find nearest station with a valid CPCB AQI
+   Find nearest station and calculate its current CPCB AQI
 ------------------------------------------------------------ */
 
 async function fetchNearestAQI(lat, lng) {
 
-  const records = await fetchCPCBRecords();
+  const station = nearestMumbaiStation(lat, lng);
 
-  if (!records) return null;
+  if (!station) return null;
 
-  const stations = buildStationReadings(records);
+  const records = await fetchStationRecords(station);
 
-  const valid = stations
-    .map(station => ({
-      raw: station,
-      distance: distanceKm(
-        lat,
-        lng,
-        station.latitude,
-        station.longitude
-      )
-    }))
-    .sort((a, b) => a.distance - b.distance);
-
-  /* Prefer stations for which CPCB's minimum AQI data requirements
-     are met. If none qualify, use the nearest station so the user
-     can see why an AQI is unavailable. */
-
-  const nearestWithAQI = valid.find(
-    s =>
-      s.distance <= 25 &&
-      s.raw.aqi != null
-  );
-
-  if (nearestWithAQI) {
+  if (!records || !records.length) {
     return {
-      ...nearestWithAQI.raw,
-      distance: nearestWithAQI.distance
+      ...station,
+      aqi: null,
+      prominent: null,
+      values: {},
+      subIndices: [],
+      records: []
     };
   }
 
-  const nearest = valid.find(
-    s => s.distance <= 25
-  );
+  const result = calculateStationAQI(records);
 
-  return nearest
-    ? {
-        ...nearest.raw,
-        distance: nearest.distance
-      }
-    : null;
+  const lastUpdate = records
+    .map(r => r.last_update)
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+
+  return {
+    ...station,
+    ...result,
+    records,
+    last_update: lastUpdate
+  };
 }
 
 
 /* ------------------------------------------------------------
-   Create CPCB station marker
+   Draw station on map
 ------------------------------------------------------------ */
 
 function drawAQStation(station) {
@@ -2753,41 +2637,32 @@ function drawAQStation(station) {
 
   if (!station) return;
 
-  const lat = station.latitude;
-  const lng = station.longitude;
-  const aqi = station.aqi;
-  const [category, bg, fg] = aqCategory(aqi);
+  const [category, bg] = aqCategory(station.aqi);
 
   const icon = L.divIcon({
     className: "",
     iconSize: [24, 24],
     iconAnchor: [12, 12],
     html:
-      `<div
-        class="aq-station-marker aq-station-pulse"
-        style="background:${bg};border-color:#fff">
-      </div>`
+      `<div class="aq-station-marker aq-station-pulse" style="background:${bg};border-color:#fff"></div>`
   });
 
   aqStationMarker = L.marker(
-    [lat, lng],
-    {
-      icon,
-      interactive: true
-    }
+    [station.latitude, station.longitude],
+    { icon, interactive: true }
   );
 
   aqStationMarker.bindPopup(`
-    <strong>${station.station}</strong>
+    <strong>${escapeHTML(station.station)}</strong>
     <br>
     AQI:
-    <strong>${aqi == null ? "—" : Math.round(aqi)}</strong>
+    <strong>${station.aqi == null ? "—" : Math.round(station.aqi)}</strong>
     <br>
     ${category}
     <br>
     ${station.distance.toFixed(1)} km from selected point
     <br>
-    <small>CPCB station · data.gov.in</small>
+    <small>CPCB / data.gov.in</small>
   `);
 
   aqStationMarker.addTo(aqStationLayer);
@@ -2795,17 +2670,19 @@ function drawAQStation(station) {
 
 
 /* ------------------------------------------------------------
-   Render CPCB AQI box
+   Render AQI panel
 ------------------------------------------------------------ */
 
 function renderAQ(station) {
 
   if (!station) {
+
     $("aq-body").innerHTML = `
       <div class="aq-error">
-        No nearby CPCB monitoring station was found within 25 km.
+        No nearby Mumbai CPCB station could be identified.
       </div>
     `;
+
     return;
   }
 
@@ -2816,20 +2693,19 @@ function renderAQ(station) {
 
   if (station.last_update) {
 
-    const parsed = new Date(station.last_update);
+    const parsed = new Date(
+      String(station.last_update).replace(" ", "T")
+    );
 
     updatedText =
       isNaN(parsed.getTime())
         ? String(station.last_update)
-        : parsed.toLocaleString(
-            "en-IN",
-            {
-              hour: "2-digit",
-              minute: "2-digit",
-              day: "2-digit",
-              month: "short"
-            }
-          );
+        : parsed.toLocaleString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "2-digit",
+            month: "short"
+          });
   }
 
   const prominent = station.prominent
@@ -2840,22 +2716,15 @@ function renderAQ(station) {
 
     <div class="aq-main">
 
-      <div
-        class="aq-num"
-        style="background:${bg};color:${fg};"
-      >
+      <div class="aq-num" style="background:${bg};color:${fg};">
         ${aqi == null ? "—" : Math.round(aqi)}
       </div>
 
       <div class="aq-info">
 
-        <div class="aq-cat">
-          ${category}
-        </div>
+        <div class="aq-cat">${category}</div>
 
-        <div class="aq-station">
-          ${station.station}
-        </div>
+        <div class="aq-station">${escapeHTML(station.station)}</div>
 
         <div class="hint">
           ${station.distance.toFixed(1)} km from your marker
@@ -2873,17 +2742,12 @@ function renderAQ(station) {
 
     ${
       aqi == null
-        ? `
-          <div class="aq-refresh">
-            CPCB's minimum data requirement for calculating an overall AQI
-            was not met at this station.
-          </div>
-        `
+        ? `<div class="aq-refresh">CPCB has not returned enough current pollutant measurements to calculate the overall AQI for this station.</div>`
         : ""
     }
 
     <div class="aq-refresh">
-      Latest station reading: ${updatedText}
+      Latest station reading: ${escapeHTML(updatedText)}
     </div>
 
     <div class="aq-refresh">
@@ -2892,22 +2756,13 @@ function renderAQ(station) {
 
     <div class="aq-source">
       Source:
-      <a
-        href="${CPCB_DATASET_URL}"
-        target="_blank"
-        rel="noopener"
-      >
-        CPCB real-time AQI dataset on data.gov.in
+      <a href="${CPCB_DATASET_URL}" target="_blank" rel="noopener">
+        CPCB real-time data on data.gov.in
       </a>
-      · nearest available government monitoring station
     </div>
 
     <div class="aq-source">
-      <a
-        href="${CPCB_PORTAL_URL}"
-        target="_blank"
-        rel="noopener"
-      >
+      <a href="${CPCB_PORTAL_URL}" target="_blank" rel="noopener">
         View CPCB Central Control Room
       </a>
     </div>
@@ -2926,15 +2781,8 @@ async function loadAQ() {
 
   clearTimeout(aqRefreshTimer);
 
-  if (!getCPCBApiKey()) {
-    renderAQKeySetup();
-    return;
-  }
-
   $("aq-body").innerHTML = `
-    <div class="hint">
-      Finding the nearest CPCB monitoring station…
-    </div>
+    <div class="hint">Loading live CPCB data…</div>
   `;
 
   try {
@@ -2947,12 +2795,6 @@ async function loadAQ() {
     if (id !== aqId) return;
 
     aqStation = station;
-
-    if (!station) {
-      aqStationLayer.clearLayers();
-      renderAQ(null);
-      return;
-    }
 
     renderAQ(station);
     drawAQStation(station);
@@ -2970,29 +2812,37 @@ async function loadAQ() {
         message.includes("403") ||
         message.toLowerCase().includes("api key")
       ) {
+
+        localStorage.removeItem(CPCB_API_KEY_STORAGE);
+
         renderAQKeySetup(
-          "The data.gov.in API key was rejected. Please check the key and try again."
+          "The data.gov.in API key was rejected."
         );
+
       } else {
+
         $("aq-body").innerHTML = `
           <div class="aq-error">
             Could not load CPCB air-quality data.
-            <div class="hint">
-              ${message}
-            </div>
+            <div class="hint">${escapeHTML(message)}</div>
           </div>
+
+          <button id="cpcb-change-key" type="button">
+            Enter a different data.gov.in API key
+          </button>
 
           <div class="aq-source">
             Data source:
-            <a
-              href="${CPCB_DATASET_URL}"
-              target="_blank"
-              rel="noopener"
-            >
-              CPCB real-time AQI dataset on data.gov.in
+            <a href="${CPCB_DATASET_URL}" target="_blank" rel="noopener">
+              CPCB real-time data on data.gov.in
             </a>
           </div>
         `;
+
+        $("cpcb-change-key").addEventListener(
+          "click",
+          () => renderAQKeySetup()
+        );
       }
     }
   }
