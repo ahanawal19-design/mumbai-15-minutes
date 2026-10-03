@@ -97,7 +97,7 @@
 
   <section class="grp" id="compare">
     <h2>Compare with traffic</h2>
-    <label class="opt"><input type="checkbox" id="traffic-layer"> Show live traffic (Google) <span class="n" id="n-traffic"></span></label>
+    <label class="opt"><input type="checkbox" id="traffic-layer"> Show live traffic <span class="n" id="n-traffic"></span></label>
     <div class="hint">Green, orange and red roads run from free-flowing to slow.</div>
 
     <label for="fade">Walking lines: <span id="fadev"></span>%</label>
@@ -130,9 +130,15 @@
   /* GOOGLE MAPS TRAFFIC UNDERLAY
      Replace the placeholder below with your Google Maps JavaScript API key.
      The key should be restricted to this site's domain.
-     If no key is set, the traffic checkbox opens Google Maps' own traffic view in a new tab. */
-  const TOMTOM_API_KEY = "HTl5p4nY5Ri2NLyEZbkgnvp1pQjPOUay";
+     With neither key set, the traffic checkbox explains that a key is needed. */
+  const GOOGLE_MAPS_API_KEY = "GOOGLE_MAPS_API_KEY";
   const hasGoogleKey = () => !!GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== "GOOGLE_MAPS_API_KEY";
+
+  /* ALTERNATIVE (no Google account needed): TomTom live traffic tiles, drawn on this same map.
+     Get a key at developer.tomtom.com, restrict it to this site's domain, and paste it below.
+     If both keys are set, Google is used. */
+  const TOMTOM_API_KEY = "HTl5p4nY5Ri2NLyEZbkgnvp1pQjPOUay";
+  const hasTomTomKey = () => !!TOMTOM_API_KEY && TOMTOM_API_KEY !== "TOMTOM_API_KEY";
 
   let googleMap = null;
   let googleTraffic = null;
@@ -259,6 +265,25 @@ const osmTiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const marker = L.marker([st.lat, st.lng], { draggable: true }).addTo(map);
 const layers = L.layerGroup().addTo(map);
 const extras = L.layerGroup().addTo(map);
+
+/* TomTom live traffic: transparent tiles layered over the base map, under the walking lines. */
+const tomtom = hasTomTomKey()
+  ? L.tileLayer("https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=" +
+      encodeURIComponent(TOMTOM_API_KEY),
+      { maxZoom: 19, opacity: 0.9, attribution: "Traffic &copy; TomTom" })
+  : null;
+
+/* If TomTom rejects the tiles, say so in the panel instead of failing silently. */
+let tomtomErrShown = false;
+if (tomtom) {
+  tomtom.on("tileerror", () => {
+    if (tomtomErrShown) return;
+    tomtomErrShown = true;
+    setL("TomTom traffic tiles failed to load. Check the key, that the Traffic API is enabled on it, and the domain whitelist.");
+    console.warn("TomTom tile error. Open a tile URL directly in a new tab to see TomTom's error message.");
+  });
+  tomtom.on("tileload", () => { tomtomErrShown = false; });
+}
 
 /* ---------------- CONTROLS ---------------- */
 $("city").innerHTML = '<option value="">Custom point</option>' +
@@ -740,16 +765,19 @@ $("fade").addEventListener("input", e => {
 async function setTraffic() {
   const box = $("traffic-layer");
 
-  // No API key: open Google Maps' own traffic view at the same spot instead.
-  if (box.checked && !hasGoogleKey()) {
-    box.checked = false;
-    const c = map.getCenter();
-    window.open(
-      "https://www.google.com/maps/@" + c.lat.toFixed(6) + "," + c.lng.toFixed(6) +
-      "," + map.getZoom() + "z/data=!5m1!1e1",
-      "_blank", "noopener"
-    );
-    setL("Opened live traffic in Google Maps (new tab).");
+  // No Google key: use TomTom tiles on this same map, or explain that a key is needed.
+  if (!hasGoogleKey()) {
+    if (!tomtom) {
+      if (box.checked) {
+        box.checked = false;
+        setL("Live traffic needs a free map key (TomTom or Google). See the comment at the top of the script.");
+      }
+    } else if (box.checked) {
+      tomtom.addTo(map);
+      setL("");
+    } else {
+      map.removeLayer(tomtom);
+    }
     writeHash();
     return;
   }
@@ -777,8 +805,9 @@ $("retry").addEventListener("click", () => { $("retry").hidden = true; load(); }
 /* ---------------- INITIALISE ---------------- */
 $("elev-layer").checked = q.get("elev") === "1";
 
-if (!hasGoogleKey()) setN("traffic", "opens Google Maps ↗");
-$("traffic-layer").checked = hasGoogleKey() && q.get("traf") === "1";
+const trafficAvailable = hasGoogleKey() || hasTomTomKey();
+if (!trafficAvailable) setN("traffic", "key needed");
+$("traffic-layer").checked = trafficAvailable && q.get("traf") === "1";
 
 sync();
 load();
