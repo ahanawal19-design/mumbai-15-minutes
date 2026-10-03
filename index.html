@@ -33,6 +33,17 @@
   #stats div + div { margin-top: 2px; }
   small { display: block; color: #52606d; font-size: 12px; margin-top: 10px; }
   a { color: #0b6e8a; }
+  .grp { border: 1px solid #d0d7de; border-radius: 6px; margin-top: 12px; padding: 6px 10px 8px; }
+  .grp summary { font-weight: 600; cursor: pointer; }
+  .opt { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 8px 0 0; }
+  .opt input { width: auto; margin: 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px #868e96; flex: none; }
+  .opt .n { margin-left: auto; color: #52606d; font-size: 12px; text-align: right; }
+  .hint { font-size: 12px; color: #52606d; margin: 4px 0 0; }
+  #lstatus { font-size: 13px; color: #52606d; margin-top: 8px; }
+  #lstatus:empty { display: none; }
+  .elev { position: absolute; transform: translate(-50%, -50%); font: 600 11px system-ui, sans-serif; padding: 1px 5px;
+    border-radius: 9px; background: #fff; border: 1px solid #495057; color: #212529; white-space: nowrap; }
   :focus-visible { outline: 3px solid #1c7ed6; outline-offset: 2px; }
 </style>
 </head>
@@ -63,10 +74,21 @@
     <div><strong id="walked"></strong> walked in <span id="statmin"></span> min</div>
     <div><strong id="reach">…</strong> of streets within reach</div>
   </div>
+  <details class="grp" id="g-places">
+    <summary>Places within reach</summary>
+    <div id="kinds"></div>
+  </details>
+  <details class="grp" id="g-access">
+    <summary>Stairs and elevation</summary>
+    <label class="opt"><input type="checkbox" id="stairs-layer"> Show stairs and ramps <span class="n" id="n-stairs"></span></label>
+    <div class="hint"><b style="color:#9c36b5">Dashed purple</b>: stairs. <b style="color:#1c7ed6">Dashed blue</b>: stairs with a ramp.</div>
+    <label class="opt"><input type="checkbox" id="elev-layer"> Show ground elevation (m) <span class="n" id="n-elev"></span></label>
+  </details>
+  <div id="lstatus" role="status"></div>
   <button id="copy">Copy link to this view</button>
 
   <small>Not included: public transport, slope, flooding, crowding, or obstructed footpaths. Street data comes from
-  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> and is incomplete in places, so some areas may look less connected than they are.</small>
+  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> and is incomplete in places, so some areas may look less connected than they are. Places and stairs also come from OpenStreetMap. Ground elevation comes from <a href="https://open-meteo.com/">Open-Meteo</a> (about 90 m resolution), so treat it as approximate.</small>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -86,11 +108,7 @@ const PRESETS = {
 };
 const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"];
 const GREY = "#9aa0a6";
-const ENDPOINTS = [
-  "https://overpass.private.coffee/api/interpreter",
-  "https://overpass-api.de/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
-];
+const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString("en-IN");
 
@@ -113,6 +131,7 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 const marker = L.marker([st.lat, st.lng], { draggable: true }).addTo(map);
 const layers = L.layerGroup().addTo(map);
+const extras = L.layerGroup().addTo(map);
 
 // ---- controls ----
 $("city").innerHTML = '<option value="">Custom point</option>' +
@@ -130,7 +149,7 @@ function sync() {
 function writeHash() {
   const p = new URLSearchParams({
     lat: st.lat.toFixed(5), lng: st.lng.toFixed(5), min: st.min,
-    spd: st.spd, st: st.noStairs ? 1 : 0, z: map.getZoom()
+    spd: st.spd, st: st.noStairs ? 1 : 0, z: map.getZoom(), lyr: layerKeys().join(",")
   });
   history.replaceState(null, "", "#" + p.toString());
 }
@@ -152,8 +171,7 @@ $("city").addEventListener("change", e => {
 });
 $("min").addEventListener("input", e => { st.min = +e.target.value; sync(); });
 $("min").addEventListener("change", e => { st.min = +e.target.value; update(); });
-$("spd").addEventListener("input", e => { st.spd = +e.target.value; sync(); });
-$("spd").addEventListener("change", e => { st.spd = +e.target.value; update(); });
+$("spd").addEventListener("input", e => { st.spd = +e.target.value; update(); });
 $("stairs").addEventListener("change", e => { st.noStairs = e.target.checked; update(); });
 $("copy").addEventListener("click", () => {
   const done = () => { $("copy").textContent = "Link copied"; setTimeout(() => $("copy").textContent = "Copy link to this view", 1800); };
@@ -164,95 +182,51 @@ $("copy").addEventListener("click", () => {
 // ---- street data (OpenStreetMap via Overpass) ----
 function hav(a, b, c, d) {
   const t = Math.PI / 180, dl = (c - a) * t, dn = (d - b) * t;
-  const x = Math.sin(dl / 2) ** 2 +
-    Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
+  const x = Math.sin(dl / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
   return 12742000 * Math.asin(Math.sqrt(x));
 }
-
-/*
-  IMPORTANT:
-  We request way geometry directly with "out geom". The old version requested
-  way bodies and then downloaded every referenced node separately (">; out skel"),
-  which is much heavier and is the main reason the browser timed out.
-*/
 async function fetchNet(lat, lng, r) {
-  const query =
-    `[out:json][timeout:45];` +
-    `way["highway"~"^(primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps)$"]` +
-    `["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});` +
-    `out geom;`;
-
-  let lastErr = null;
-
-  for (const url of ENDPOINTS) {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 50000);
-
-    try {
-      // Overpass supports browser POST requests and CORS.
-      const res = await fetch(url, {
-        method: "POST",
-        body: "data=" + encodeURIComponent(query),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        signal: ctl.signal,
-        cache: "no-store"
-      });
-
-      if (!res.ok) throw new Error("server replied " + res.status);
-
-      const j = await res.json();
-      if (!j || !Array.isArray(j.elements)) {
-        throw new Error("invalid Overpass response");
-      }
-      return j;
-    } catch (e) {
-      lastErr = e;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  throw lastErr || new Error("all Overpass servers failed");
+  const query = `[out:json][timeout:30];way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});out body;>;out skel qt;`;
+  return overpass(query);
 }
-
-/*
-  "out geom" gives coordinates instead of OSM node IDs.
-  We turn each unique coordinate into a graph node. Shared OSM
-  intersections therefore reconnect automatically.
-*/
+async function overpass(query) {
+  let err;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    for (const url of ENDPOINTS) {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+      try {
+        const res = await fetch(url, {
+          method: "POST", body: "data=" + encodeURIComponent(query),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          signal: ctl.signal
+        });
+        if (!res.ok) throw new Error("server replied " + res.status);
+        return await res.json();
+      } catch (e) { err = e; }
+      finally { clearTimeout(timer); }
+    }
+    await new Promise(done => setTimeout(done, 3000));
+  }
+  throw err;
+}
 function build(j) {
   const nodes = new Map(), adj = new Map(), segs = [];
-  const key = (p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`;
-
-  function ensure(p) {
-    const k = key(p);
-    if (!nodes.has(k)) {
-      nodes.set(k, [p.lat, p.lon]);
-      adj.set(k, []);
-    }
-    return k;
-  }
-
+  for (const e of j.elements) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
   for (const e of j.elements) {
-    if (e.type !== "way" || !Array.isArray(e.geometry) || e.geometry.length < 2) continue;
-
+    if (e.type !== "way") continue;
     const steps = e.tags && e.tags.highway === "steps";
-
-    // Defensive client-side filtering in case an endpoint interprets tags differently.
-    if (e.tags && (e.tags.foot === "no" || e.tags.access === "private")) continue;
-
-    for (let i = 0; i < e.geometry.length - 1; i++) {
-      const pa = e.geometry[i], pb = e.geometry[i + 1];
-      const a = ensure(pa), b = ensure(pb);
-      if (a === b) continue;
-
-      const len = hav(pa.lat, pa.lon, pb.lat, pb.lon);
+    const ramp = !!(e.tags && (e.tags.ramp === "yes" || e.tags["ramp:wheelchair"] === "yes"));
+    for (let i = 0; i < e.nodes.length - 1; i++) {
+      const a = e.nodes[i], b = e.nodes[i + 1], pa = nodes.get(a), pb = nodes.get(b);
+      if (!pa || !pb) continue;
+      const len = hav(pa[0], pa[1], pb[0], pb[1]);
+      if (!adj.has(a)) adj.set(a, []);
+      if (!adj.has(b)) adj.set(b, []);
       adj.get(a).push([b, len, steps]);
       adj.get(b).push([a, len, steps]);
-      segs.push([a, b, steps, len]);
+      segs.push([a, b, steps, len, ramp, e.id]);
     }
   }
-
   return { nodes, adj, segs };
 }
 
@@ -321,7 +295,7 @@ function render() {
   const g = data.g, T = st.min * 60;
   layers.clearLayers();
   const src = startNode(g, st.lat, st.lng, st.noStairs);
-  if (src == null) { $("reach").textContent = "0 m"; status("No walkable streets found here. Try another spot."); return; }
+  if (src == null) { run = null; extras.clearLayers(); $("reach").textContent = "0 m"; status("No walkable streets found here. Try another spot."); return; }
   const me = dijkstra(g, src, st.spd, st.noStairs, T);
   const base = dijkstra(g, src, 1.4, false, T);
   const grey = [], bins = COLORS.map(() => []);
@@ -337,23 +311,221 @@ function render() {
   bins.forEach((lines, i) => L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95, interactive: false }).addTo(layers));
   $("reach").textContent = fmt(Math.round(reachM)) + " m";
   const sp = g.nodes.get(src), off = Math.round(hav(st.lat, st.lng, sp[0], sp[1]));
+  run = { me, base };
+  scheduleExtras();
   status(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
 }
 async function load() {
-  const id = ++reqId, r = 1.8 * 15 * 60 + 150;
+  const id = ++reqId, r = 1.8 * 15 * 60 + 100;
   if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
   layers.clearLayers();
+  extras.clearLayers();
+  run = null;
+  setL("");
   $("reach").textContent = "…";
   status("Loading street network…");
   try {
     const j = await fetchNet(st.lat, st.lng, r);
     if (id !== reqId) return;
-    data = { lat: st.lat, lng: st.lng, r, g: build(j) };
+    data = { lat: st.lat, lng: st.lng, r, g: build(j), poi: {}, elev: new Map() };
     render();
   } catch (e) {
-    if (id === reqId) status("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Try again or choose another point.");
+    if (id === reqId) status("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Wait a moment, then pick the place again.");
   }
 }
+
+// ---- places, stairs and elevation layers ----
+const KINDS = {
+  hospital:  { label: "Hospitals & clinics", color: "#d6336c", tags: { amenity: ["hospital", "clinic"] } },
+  grocery:   { label: "Groceries & supermarkets", color: "#1c7ed6", tags: { shop: ["supermarket", "convenience", "greengrocer", "grocery", "general"], amenity: ["marketplace"] } },
+  education: { label: "Education", color: "#5f3dc4", tags: { amenity: ["school", "kindergarten", "college", "university"] } },
+  park:      { label: "Parks & play", color: "#37b24d", tags: { leisure: ["park", "playground", "garden", "recreation_ground", "pitch"] } },
+  food:      { label: "Cafés & restaurants", color: "#8d5524", tags: { amenity: ["cafe", "restaurant", "fast_food", "food_court"] } },
+  bus:       { label: "Bus stops", color: "#111111", tags: { highway: ["bus_stop"] } },
+  other:     { label: "Other amenities", color: "#868e96", tags: { amenity: ["pharmacy", "bank", "atm", "post_office", "place_of_worship", "toilets", "community_centre", "library", "police", "fire_station", "drinking_water"] } },
+};
+const CORE = ["hospital", "grocery", "education", "park", "food"];
+const setL = t => { $("lstatus").textContent = t; };
+const setN = (id, t) => { const el = $("n-" + id); if (el) el.textContent = t; };
+let run = null, extrasId = 0, extrasTimer = null;
+
+const optRow = k => `<label class="opt"><input type="checkbox" id="k-${k}"><i class="dot" style="background:${KINDS[k].color}"></i>${KINDS[k].label} <span class="n" id="n-${k}"></span></label>`;
+$("kinds").innerHTML = CORE.map(k => optRow(k)).join("") +
+  `<label class="opt"><input type="checkbox" id="all"><i class="dot" style="background:conic-gradient(#d6336c,#1c7ed6,#5f3dc4,#37b24d,#8d5524,#d6336c)"></i>All amenities <span class="n" id="n-all"></span></label>
+   <div class="hint">Also adds pharmacies, banks, places of worship, toilets and more.</div>` +
+  optRow("bus");
+
+function setAll(on) {
+  $("all").checked = on;
+  CORE.forEach(k => {
+    const b = $("k-" + k);
+    if (on) { b.dataset.prev = b.checked ? "1" : ""; b.checked = true; b.disabled = true; }
+    else { b.checked = !!b.dataset.prev; b.disabled = false; }
+  });
+}
+function layerKeys() {
+  if (!$("all")) return [];
+  const keys = [];
+  if ($("all").checked) keys.push("all"); else CORE.forEach(k => { if ($("k-" + k).checked) keys.push(k); });
+  if ($("k-bus").checked) keys.push("bus");
+  if ($("stairs-layer").checked) keys.push("stairs");
+  if ($("elev-layer").checked) keys.push("elev");
+  return keys;
+}
+function wanted() {
+  const w = new Set();
+  if ($("all").checked) { CORE.forEach(k => w.add(k)); w.add("other"); }
+  else CORE.forEach(k => { if ($("k-" + k).checked) w.add(k); });
+  if ($("k-bus").checked) w.add("bus");
+  return w;
+}
+
+// restore the layers from a shared link
+const want0 = new Set((q.get("lyr") || "").split(",").filter(Boolean));
+CORE.forEach(k => { $("k-" + k).checked = want0.has(k); });
+$("k-bus").checked = want0.has("bus");
+$("stairs-layer").checked = want0.has("stairs");
+$("elev-layer").checked = want0.has("elev");
+if (want0.has("all")) setAll(true);
+if (want0.size || innerWidth > 700) { $("g-places").open = true; $("g-access").open = true; }
+
+function layersChanged() { writeHash(); showExtras().catch(e => setL("Could not draw layers: " + e.message)); }
+document.querySelectorAll("#kinds input, #stairs-layer, #elev-layer").forEach(el => {
+  if (el.id !== "all") el.addEventListener("change", layersChanged);
+});
+$("all").addEventListener("change", e => { setAll(e.target.checked); layersChanged(); });
+
+async function fetchPlaces(kinds, lat, lng, r) {
+  const parts = [];
+  for (const k of kinds) {
+    for (const [key, vals] of Object.entries(KINDS[k].tags)) {
+      parts.push(`nwr["${key}"~"^(${vals.join("|")})$"](around:${r},${lat},${lng});`);
+    }
+  }
+  const j = await overpass(`[out:json][timeout:30];(${parts.join("")});out center tags;`);
+  const found = {};
+  kinds.forEach(k => { found[k] = []; });
+  for (const e of j.elements) {
+    const ll = e.type === "node" ? [e.lat, e.lon] : (e.center ? [e.center.lat, e.center.lon] : null);
+    if (!ll || !e.tags) continue;
+    const kind = kinds.find(k => Object.entries(KINDS[k].tags).some(([key, vals]) => vals.includes(e.tags[key])));
+    if (kind) found[kind].push({ ll, name: e.tags.name || "", type: e.tags.amenity || e.tags.shop || e.tags.leisure || e.tags.highway || "" });
+  }
+  return found;
+}
+async function fetchElev(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length; i += 100) {
+    const b = pts.slice(i, i + 100);
+    const url = "https://api.open-meteo.com/v1/elevation?latitude=" + b.map(p => p[0].toFixed(5)).join(",") +
+      "&longitude=" + b.map(p => p[1].toFixed(5)).join(",");
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("elevation service replied " + res.status);
+    out.push(...(await res.json()).elevation);
+  }
+  return out;
+}
+// one sample point per ~250 m cell of the reachable streets
+function elevPoints() {
+  const g = data.g, dLat = 250 / 111320, dLng = dLat / Math.cos(st.lat * Math.PI / 180), seen = new Set(), out = [];
+  for (const id of run.me.keys()) {
+    const p = g.nodes.get(id), key = Math.floor(p[0] / dLat) + "," + Math.floor(p[1] / dLng);
+    if (seen.has(key)) continue;
+    seen.add(key); out.push({ id, ll: p });
+    if (out.length >= 300) break;
+  }
+  return out;
+}
+function scheduleExtras() {
+  clearTimeout(extrasTimer);
+  extrasTimer = setTimeout(() => showExtras().catch(e => setL("Could not draw layers: " + e.message)), 350);
+}
+async function showExtras() {
+  const id = ++extrasId, d = data;
+  if (!d || !run) return;
+  const want = wanted(), need = [...want].filter(k => !(k in d.poi));
+  const pts = $("elev-layer").checked ? elevPoints() : [];
+  const needE = pts.filter(p => !d.elev.has(p.id));
+  if (need.length || needE.length) {
+    setL("Loading map layers…");
+    try {
+      if (need.length) Object.assign(d.poi, await fetchPlaces(need, d.lat, d.lng, d.r));
+      if (needE.length) {
+        const h = await fetchElev(needE.map(p => p.ll));
+        needE.forEach((p, i) => d.elev.set(p.id, h[i]));
+      }
+      if (id === extrasId) setL("");
+    } catch (e) {
+      if (id === extrasId) setL("Could not load some layers (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Toggle the layer to try again.");
+    }
+  } else setL("");
+  if (id !== extrasId || d !== data) return;
+  drawExtras(want, pts);
+}
+function drawExtras(want, pts) {
+  extras.clearLayers();
+  document.querySelectorAll(".n").forEach(n => { n.textContent = ""; });
+  const g = data.g, me = run.me, base = run.base;
+
+  // reachable street points, bucketed so each place can be tested quickly
+  const cell = 0.0006, grid = new Map();
+  for (const id of me.keys()) {
+    const p = g.nodes.get(id), key = Math.floor(p[0] / cell) + "," + Math.floor(p[1] / cell);
+    (grid.get(key) || grid.set(key, []).get(key)).push(p);
+  }
+  const near = ll => {
+    const i = Math.floor(ll[0] / cell), j = Math.floor(ll[1] / cell);
+    for (let a = i - 1; a <= i + 1; a++) for (let b = j - 1; b <= j + 1; b++)
+      for (const p of grid.get(a + "," + b) || []) if (hav(ll[0], ll[1], p[0], p[1]) <= 60) return true;
+    return false;
+  };
+
+  // places within reach (a place counts if it is within 60 m of a reachable street)
+  let total = 0;
+  const stairsOn = $("stairs-layer").checked;
+  if (stairsOn) {
+    const plain = [], ramp = [], ways = new Set();
+    for (const [a, b, steps, , rp, wid] of g.segs) {
+      if (!steps || !(me.has(a) || me.has(b) || base.has(a) || base.has(b))) continue;
+      (rp ? ramp : plain).push([g.nodes.get(a), g.nodes.get(b)]);
+      ways.add(wid);
+    }
+    const dash = c => ({ color: c, weight: 6, opacity: 0.95, dashArray: "4 6", interactive: false });
+    L.polyline(plain, dash("#9c36b5")).addTo(extras);
+    L.polyline(ramp, dash("#1c7ed6")).addTo(extras);
+    setN("stairs", ways.size + " stairs");
+  }
+  for (const k of want) {
+    const kind = KINDS[k]; let n = 0;
+    for (const it of (d_poi(k))) {
+      if (!near(it.ll)) continue;
+      n++;
+      L.circleMarker(it.ll, { radius: 6, color: "#fff", weight: 1.5, fillColor: kind.color, fillOpacity: 1, bubblingMouseEvents: false })
+        .bindPopup(() => {
+          const el = document.createElement("div"), what = String(it.type || kind.label).replace(/_/g, " ");
+          el.textContent = it.name ? it.name + " (" + what + ")" : what;
+          return el;
+        }).addTo(extras);
+    }
+    setN(k, n);
+    if (k !== "bus") total += n;
+  }
+  if ($("all").checked) setN("all", total);
+
+  // ground elevation labels
+  if ($("elev-layer").checked) {
+    let lo = Infinity, hi = -Infinity;
+    for (const p of pts) {
+      const h = data.elev.get(p.id);
+      if (h == null || isNaN(h)) continue;
+      lo = Math.min(lo, h); hi = Math.max(hi, h);
+      L.marker(p.ll, { interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "", iconSize: [0, 0], html: '<span class="elev">' + Math.round(h) + "</span>" }) }).addTo(extras);
+    }
+    if (lo <= hi) setN("elev", Math.round(lo) + " to " + Math.round(hi) + " m");
+  }
+}
+const d_poi = k => (data.poi[k] || []);
 
 sync();
 load();
