@@ -3,378 +3,119 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <title>15 minutes in Mumbai. For whom?</title>
-
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
->
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <style>
+  html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
-html,
-body {
-  height: 100%;
-  margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
-}
+  #google-map { position: absolute; inset: 0; z-index: 0; display: none; }
+  #map { position: relative; z-index: 1; height: 100%; background: transparent; }
 
-#map {
-  height: 100%;
-}
+  #panel {
+    position: absolute; z-index: 1000; top: 10px; left: 10px; width: 310px;
+    max-width: calc(100% - 20px); max-height: calc(100% - 20px); overflow: auto;
+    box-sizing: border-box; background: #fff; color: #1f2933; padding: 14px 16px;
+    border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.28); font-size: 14px; line-height: 1.45;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; line-height: 1.2; }
+  p { margin: 0 0 10px; }
+  label { display: block; margin: 10px 0 2px; font-weight: 600; }
+  select, input[type=range], button { width: 100%; box-sizing: border-box; }
+  select, button { font: inherit; padding: 6px 8px; }
+  button { margin-top: 10px; cursor: pointer; }
 
-#panel {
-  position: absolute;
-  z-index: 1000;
-  top: 10px;
-  left: 10px;
-  width: 310px;
-  max-width: calc(100% - 20px);
-  max-height: calc(100% - 20px);
-  overflow: auto;
-  box-sizing: border-box;
-  background: #fff;
-  color: #1f2933;
-  padding: 14px 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0,0,0,.28);
-  font-size: 14px;
-  line-height: 1.45;
-}
+  #legend { height: 10px; border-radius: 5px; margin-top: 12px; }
+  #legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: #52606d; }
+  #grey { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #52606d; margin-top: 6px; }
+  #grey i { display: inline-block; width: 24px; height: 4px; background: #9aa0a6; border-radius: 2px; }
+  #status { color: #52606d; margin: 0 0 10px; }
+  #status:empty { display: none; }
+  #stats { margin-top: 12px; }
+  #stats div + div { margin-top: 2px; }
+  small { display: block; color: #52606d; font-size: 12px; margin-top: 10px; }
+  a { color: #0b6e8a; }
 
-h1 {
-  font-size: 20px;
-  margin: 0 0 6px;
-  line-height: 1.2;
-}
+  .grp { border: 1px solid #d0d7de; border-radius: 6px; margin-top: 12px; padding: 8px 10px 10px; }
+  .opt { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 8px 0 0; }
+  .opt input { width: auto; margin: 0; }
+  .opt .n { margin-left: auto; color: #52606d; font-size: 12px; text-align: right; }
+  .hint { font-size: 12px; color: #52606d; margin: 4px 0 0; }
+  #lstatus { font-size: 13px; color: #52606d; margin-top: 8px; }
+  #lstatus:empty { display: none; }
 
-p {
-  margin: 0 0 10px;
-}
+  /* temperature panel */
+  #temperature h2 { font-size: 14px; margin: 0 0 8px; }
+  .temp-main { display: flex; align-items: center; gap: 10px; }
+  .temp-num { font-size: 28px; font-weight: 700; line-height: 1; }
+  .temp-info { min-width: 0; }
+  .temp-location { font-size: 13px; }
+  .temp-meta { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  .temp-error { color: #8a3b12; font-size: 13px; }
 
-label {
-  display: block;
-  margin: 10px 0 2px;
-  font-weight: 600;
-}
-
-select,
-input[type=range],
-button {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-select,
-button {
-  font: inherit;
-  padding: 6px 8px;
-}
-
-button {
-  margin-top: 10px;
-  cursor: pointer;
-}
-
-#legend {
-  height: 10px;
-  border-radius: 5px;
-  margin-top: 12px;
-}
-
-#legend-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #52606d;
-}
-
-#grey {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #52606d;
-  margin-top: 6px;
-}
-
-#grey i {
-  display: inline-block;
-  width: 24px;
-  height: 4px;
-  background: #9aa0a6;
-  border-radius: 2px;
-}
-
-#status {
-  color: #52606d;
-  margin: 0 0 10px;
-}
-
-#status:empty {
-  display: none;
-}
-
-#stats {
-  margin-top: 12px;
-}
-
-#stats div + div {
-  margin-top: 2px;
-}
-
-small {
-  display: block;
-  color: #52606d;
-  font-size: 12px;
-  margin-top: 10px;
-}
-
-a {
-  color: #0b6e8a;
-}
-
-.grp {
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  margin-top: 12px;
-  padding: 8px 10px 10px;
-}
-
-.opt {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 400;
-  margin: 8px 0 0;
-}
-
-.opt input {
-  width: auto;
-  margin: 0;
-}
-
-.opt .n {
-  margin-left: auto;
-  color: #52606d;
-  font-size: 12px;
-  text-align: right;
-}
-
-.hint {
-  font-size: 12px;
-  color: #52606d;
-  margin: 4px 0 0;
-}
-
-#lstatus {
-  font-size: 13px;
-  color: #52606d;
-  margin-top: 8px;
-}
-
-#lstatus:empty {
-  display: none;
-}
-
-/* ---------------- TEMPERATURE PANEL ---------------- */
-
-#temperature h2 {
-  font-size: 14px;
-  margin: 0 0 8px;
-}
-
-.temp-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.temp-num {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.temp-info {
-  min-width: 0;
-}
-
-.temp-location {
-  font-size: 13px;
-}
-
-.temp-meta {
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: 4px;
-}
-
-.temp-error {
-  color: #8a3b12;
-  font-size: 13px;
-}
-
-/* ---------------- ELEVATION LABELS ---------------- */
-
-.elev {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font: 600 11px system-ui, sans-serif;
-  padding: 1px 5px;
-  border-radius: 9px;
-  background: #fff;
-  border: 1px solid #495057;
-  color: #212529;
-  white-space: nowrap;
-}
-
-:focus-visible {
-  outline: 3px solid #1c7ed6;
-  outline-offset: 2px;
-}
-
+  /* elevation labels */
+  .elev {
+    position: absolute; transform: translate(-50%, -50%); font: 600 11px system-ui, sans-serif;
+    padding: 1px 5px; border-radius: 9px; background: #fff; border: 1px solid #495057;
+    color: #212529; white-space: nowrap;
+  }
+  :focus-visible { outline: 3px solid #1c7ed6; outline-offset: 2px; }
 </style>
 </head>
-
 <body>
 
+<div id="google-map"></div>
 <div id="map"></div>
 
 <div id="panel">
-
   <h1>15 minutes in Mumbai. For whom?</h1>
-
-  <p>
-    Click the map or drag the marker. Coloured streets are what you can reach
-    on foot with your settings.
-  </p>
-
+  <p>Click the map or drag the marker. Coloured streets are what you can reach on foot with your settings.</p>
   <div id="status" role="status"></div>
 
   <label for="city">Start from</label>
-
   <select id="city"></select>
 
-  <label for="min">
-    Time budget:
-    <span id="minv"></span> min
-  </label>
+  <label for="min">Time budget: <span id="minv"></span> min</label>
+  <input type="range" id="min" min="5" max="15" step="1">
 
-  <input
-    type="range"
-    id="min"
-    min="5"
-    max="15"
-    step="1"
-  >
-
-  <label for="spd">
-    Walking speed:
-    <span id="spdv"></span> m/s
-  </label>
-
-  <input
-    type="range"
-    id="spd"
-    min="0.8"
-    max="1.8"
-    step="0.1"
-  >
+  <label for="spd">Walking speed: <span id="spdv"></span> m/s</label>
+  <input type="range" id="spd" min="0.8" max="1.8" step="0.1">
 
   <div id="legend"></div>
-
-  <div id="legend-labels">
-    <span>0 min</span>
-    <span id="lmax"></span>
-  </div>
-
-  <div id="grey">
-    <i></i>
-    Reachable at 1.4 m/s, but not with your settings
-  </div>
+  <div id="legend-labels"><span>0 min</span><span id="lmax"></span></div>
+  <div id="grey"><i></i> Reachable at 1.4 m/s, but not with your settings</div>
 
   <div id="stats">
-    <div>
-      <strong id="walked"></strong>
-      walked in <span id="statmin"></span> min
-    </div>
-
-    <div>
-      <strong id="reach">…</strong>
-      of streets within reach
-    </div>
+    <div><strong id="walked"></strong> walked in <span id="statmin"></span> min</div>
+    <div><strong id="reach">…</strong> of streets within reach</div>
   </div>
 
-  <label class="opt">
-    <input type="checkbox" id="elev-layer">
-    Show ground elevation (m)
-    <span class="n" id="n-elev"></span>
-  </label>
-
+  <label class="opt"><input type="checkbox" id="elev-layer"> Show ground elevation (m) <span class="n" id="n-elev"></span></label>
   <div id="lstatus" role="status"></div>
 
-  <!-- ================= TEMPERATURE ================= -->
-
   <section class="grp" id="temperature" aria-live="polite">
-
     <h2>Local temperature</h2>
-
-    <div id="temperature-body">
-      Loading local temperature…
-    </div>
-
+    <div id="temperature-body">Loading local temperature…</div>
   </section>
 
-  <button id="copy">
-    Copy link to this view
-  </button>
+  <button id="copy">Copy link to this view</button>
 
   <small>
-    Not included: public transport, slope, flooding, crowding,
-    or obstructed footpaths. Street data comes from
-    <a href="https://www.openstreetmap.org/copyright"
-       target="_blank"
-       rel="noopener">
-      OpenStreetMap
-    </a>
-    and is incomplete in places, so some areas may look less connected
-    than they are.
-
+    Not included: public transport, slope, flooding, crowding, or obstructed footpaths. Street data comes from
+    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+    and is incomplete in places, so some areas may look less connected than they are.
     Ground elevation uses Copernicus DEM through
-    <a href="https://open-meteo.com/"
-       target="_blank"
-       rel="noopener">
-      Open-Meteo
-    </a>.
+    <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.
   </small>
-
   <small>
-    Temperature is provided by
-    <a href="https://open-meteo.com/"
-       target="_blank"
-       rel="noopener">
-      Open-Meteo
-    </a>
+    Temperature is provided by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
     for the selected map location.
   </small>
-
 </div>
 
-
 <script>
-  /* ============================================================
-     GOOGLE MAPS TRAFFIC UNDERLAY
-     Replace the placeholder below with your Google Maps JavaScript
-     API key. The key should be restricted to this site's domain.
-  ============================================================ */
-
+  /* GOOGLE MAPS TRAFFIC UNDERLAY
+     Replace the placeholder below with your Google Maps JavaScript API key.
+     The key should be restricted to this site's domain. */
   const GOOGLE_MAPS_API_KEY = "GOOGLE_MAPS_API_KEY";
 
   let googleMap = null;
@@ -383,38 +124,31 @@ a {
 
   function loadGoogleMaps() {
     if (googleMapsReady) return googleMapsReady;
-
     googleMapsReady = new Promise((resolve, reject) => {
       if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "GOOGLE_MAPS_API_KEY") {
         reject(new Error("Add your Google Maps JavaScript API key first."));
         return;
       }
-
       window.__googleMapsTrafficReady = resolve;
-
       const script = document.createElement("script");
-      script.src =
-        "https://maps.googleapis.com/maps/api/js" +
+      script.src = "https://maps.googleapis.com/maps/api/js" +
         "?key=" + encodeURIComponent(GOOGLE_MAPS_API_KEY) +
-        "&callback=__googleMapsTrafficReady" +
-        "&loading=async";
+        "&callback=__googleMapsTrafficReady&loading=async";
       script.async = true;
       script.defer = true;
-      script.onerror = () =>
-        reject(new Error("Google Maps JavaScript API could not load."));
+      script.onerror = () => reject(new Error("Google Maps JavaScript API could not load."));
       document.head.appendChild(script);
     });
-
     return googleMapsReady;
   }
 
   async function initGoogleTraffic() {
     const el = document.getElementById("google-map");
-
     try {
       await loadGoogleMaps();
+      const { Map: GMap, TrafficLayer } = await google.maps.importLibrary("maps");
 
-      googleMap = new google.maps.Map(el, {
+      googleMap = new GMap(el, {
         center: { lat: st.lat, lng: st.lng },
         zoom: st.z,
         disableDefaultUI: true,
@@ -426,1739 +160,464 @@ a {
         mapTypeControl: false
       });
 
-      googleTraffic = new google.maps.TrafficLayer();
+      googleTraffic = new TrafficLayer();
       googleTraffic.setMap(googleMap);
 
+      el.style.display = "block";
+      osmTiles.setOpacity(0);
       syncGoogleMap();
 
     } catch (e) {
       console.warn("Google traffic layer:", e.message || e);
       el.style.display = "none";
+      osmTiles.setOpacity(1);
     }
   }
 
   function syncGoogleMap() {
     if (!googleMap) return;
-
-    googleMap.setCenter({
-      lat: st.lat,
-      lng: st.lng
+    const c = map.getCenter();
+    googleMap.moveCamera({
+      center: { lat: c.lat, lng: c.lng },
+      zoom: map.getZoom()
     });
-    googleMap.setZoom(map.getZoom());
   }
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
 <script>
-
-/* ============================================================
-   PRESETS
-============================================================ */
-
+/* ---------------- PRESETS ---------------- */
 const PRESETS = {
-
   "Dadar": [19.0178, 72.8478],
-
   "Churchgate": [18.9322, 72.8264],
-
   "CSMT": [18.9398, 72.8355],
-
   "Colaba": [18.9067, 72.8147],
-
   "Bandra": [19.0544, 72.8402],
-
   "Dharavi": [19.0433, 72.8553],
-
   "Kurla": [19.0652, 72.8795],
-
   "Ghatkopar": [19.0860, 72.9090],
-
   "Andheri": [19.1197, 72.8468],
-
   "Powai": [19.1176, 72.9060],
-
   "Borivali": [19.2307, 72.8567]
-
 };
 
-
-/* ============================================================
-   WALKING MAP
-============================================================ */
-
-const COLORS = [
-  "#0b6e4f",
-  "#2a9d8f",
-  "#8ab17d",
-  "#e9c46a",
-  "#f4a261",
-  "#e76f51"
-];
-
+const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"];
 const GREY = "#9aa0a6";
-
-const ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter"
-];
+const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 
 const $ = id => document.getElementById(id);
-
 const fmt = n => n.toLocaleString("en-IN");
+const escapeHTML = s =>
+  String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
 
-
-/* ============================================================
-   STATE
-============================================================ */
-
+/* ---------------- STATE ---------------- */
 const q = new URLSearchParams(location.hash.slice(1));
-
 const st = {
-
   lat: parseFloat(q.get("lat")) || 19.0178,
-
   lng: parseFloat(q.get("lng")) || 72.8478,
-
-  min: Math.min(
-    15,
-    Math.max(
-      5,
-      parseInt(q.get("min")) || 15
-    )
-  ),
-
+  min: Math.min(15, Math.max(5, parseInt(q.get("min")) || 15)),
   spd: parseFloat(q.get("spd")) || 1.4,
-
   z: parseInt(q.get("z")) || 14
-
 };
 
+/* ---------------- MAP ---------------- */
+const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([st.lat, st.lng], st.z);
+L.control.zoom({ position: "bottomright" }).addTo(map);
 
-/* ============================================================
-   MAP
-============================================================ */
-
-const map =
-  L.map("map", {
-    zoomControl: false,
-    preferCanvas: true
-  })
-  .setView(
-    [st.lat, st.lng],
-    st.z
-  );
-
-
-L.control.zoom({
-  position: "bottomright"
+const osmTiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  opacity: 1,
+  attribution: "&copy; OpenStreetMap contributors"
 }).addTo(map);
 
+const marker = L.marker([st.lat, st.lng], { draggable: true }).addTo(map);
+const layers = L.layerGroup().addTo(map);
+const extras = L.layerGroup().addTo(map);
 
-const osmTiles = L.tileLayer(
-  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom: 19,
-    opacity: 0,
-    attribution:
-      "&copy; OpenStreetMap contributors"
-  }
-).addTo(map);
-
-
-const marker =
-  L.marker(
-    [st.lat, st.lng],
-    {
-      draggable: true
-    }
-  ).addTo(map);
-
-
-const layers =
-  L.layerGroup().addTo(map);
-
-
-const extras =
-  L.layerGroup().addTo(map);
-
-
-/* ============================================================
-   CONTROLS
-============================================================ */
-
-$("city").innerHTML =
-  '<option value="">Custom point</option>' +
-
-  Object.keys(PRESETS)
-    .map(
-      n => `<option>${n}</option>`
-    )
-    .join("");
-
-
-$("legend").style.background =
-  "linear-gradient(to right," +
-  COLORS.join(",") +
-  ")";
-
+/* ---------------- CONTROLS ---------------- */
+$("city").innerHTML = '<option value="">Custom point</option>' +
+  Object.keys(PRESETS).map(n => `<option>${n}</option>`).join("");
+$("legend").style.background = "linear-gradient(to right," + COLORS.join(",") + ")";
 
 function sync() {
-
   $("min").value = st.min;
-
   $("minv").textContent = st.min;
-
   $("spd").value = st.spd;
-
-  $("spdv").textContent =
-    st.spd.toFixed(1);
-
-  $("lmax").textContent =
-    st.min + " min";
-
-  $("statmin").textContent =
-    st.min;
-
-  $("walked").textContent =
-    fmt(
-      Math.round(
-        st.spd *
-        st.min *
-        60
-      )
-    ) + " m";
-
+  $("spdv").textContent = st.spd.toFixed(1);
+  $("lmax").textContent = st.min + " min";
+  $("statmin").textContent = st.min;
+  $("walked").textContent = fmt(Math.round(st.spd * st.min * 60)) + " m";
 }
-
 
 function writeHash() {
-
-  const p =
-    new URLSearchParams({
-
-      lat: st.lat.toFixed(5),
-
-      lng: st.lng.toFixed(5),
-
-      min: st.min,
-
-      spd: st.spd,
-
-      elev:
-        $("elev-layer").checked
-          ? 1
-          : 0,
-
-      z: map.getZoom()
-
-    });
-
-  history.replaceState(
-    null,
-    "",
-    "#" + p.toString()
-  );
-
+  const p = new URLSearchParams({
+    lat: st.lat.toFixed(5),
+    lng: st.lng.toFixed(5),
+    min: st.min,
+    spd: st.spd,
+    elev: $("elev-layer").checked ? 1 : 0,
+    z: map.getZoom()
+  });
+  history.replaceState(null, "", "#" + p.toString());
 }
 
-
-function setStatus(t) {
-
-  $("status").textContent = t;
-
-}
-
+function setStatus(t) { $("status").textContent = t; }
 
 function update() {
-
   sync();
-
   writeHash();
-
   syncGoogleMap();
-
   load();
-
 }
 
-
-function setPoint(
-  lat,
-  lng,
-  keepPreset
-) {
-
+function setPoint(lat, lng, keepPreset) {
   st.lat = lat;
-
   st.lng = lng;
-
-  marker.setLatLng([
-    lat,
-    lng
-  ]);
-
-  if (!keepPreset) {
-
-    $("city").value = "";
-
-  }
-
+  marker.setLatLng([lat, lng]);
+  if (!keepPreset) $("city").value = "";
   update();
-
   loadTemperature();
-
 }
 
+map.on("click", e => setPoint(e.latlng.lat, e.latlng.lng));
+marker.on("dragend", () => { const p = marker.getLatLng(); setPoint(p.lat, p.lng); });
+map.on("zoomend", () => { writeHash(); syncGoogleMap(); });
+map.on("move", syncGoogleMap);
 
-map.on(
-  "click",
-  e =>
-    setPoint(
-      e.latlng.lat,
-      e.latlng.lng
-    )
-);
+$("city").addEventListener("change", e => {
+  const c = PRESETS[e.target.value];
+  if (!c) return;
+  map.setView(c, 14);
+  setPoint(c[0], c[1], true);
+});
+$("min").addEventListener("input", e => { st.min = +e.target.value; sync(); });
+$("min").addEventListener("change", e => { st.min = +e.target.value; update(); });
+$("spd").addEventListener("input", e => { st.spd = +e.target.value; update(); });
 
-
-marker.on(
-  "dragend",
-  () => {
-
-    const p =
-      marker.getLatLng();
-
-    setPoint(
-      p.lat,
-      p.lng
-    );
-
+$("copy").addEventListener("click", () => {
+  const done = () => {
+    $("copy").textContent = "Link copied";
+    setTimeout(() => { $("copy").textContent = "Copy link to this view"; }, 1800);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(location.href).then(done, () => prompt("Copy this link:", location.href));
+  } else {
+    prompt("Copy this link:", location.href);
   }
-);
+});
 
-
-map.on(
-  "zoomend",
-  () => {
-    writeHash();
-    syncGoogleMap();
-  }
-);
-
-
-$("city").addEventListener(
-  "change",
-  e => {
-
-    const c =
-      PRESETS[e.target.value];
-
-    if (!c) return;
-
-    map.setView(
-      c,
-      14
-    );
-
-    setPoint(
-      c[0],
-      c[1],
-      true
-    );
-
-  }
-);
-
-
-$("min").addEventListener(
-  "input",
-  e => {
-
-    st.min =
-      +e.target.value;
-
-    sync();
-
-  }
-);
-
-
-$("min").addEventListener(
-  "change",
-  e => {
-
-    st.min =
-      +e.target.value;
-
-    update();
-
-  }
-);
-
-
-$("spd").addEventListener(
-  "input",
-  e => {
-
-    st.spd =
-      +e.target.value;
-
-    update();
-
-  }
-);
-
-
-$("copy").addEventListener(
-  "click",
-  () => {
-
-    const done = () => {
-
-      $("copy").textContent =
-        "Link copied";
-
-      setTimeout(
-        () =>
-          $("copy").textContent =
-            "Copy link to this view",
-        1800
-      );
-
-    };
-
-    if (navigator.clipboard) {
-
-      navigator.clipboard
-        .writeText(location.href)
-        .then(
-          done,
-          () =>
-            prompt(
-              "Copy this link:",
-              location.href
-            )
-        );
-
-    } else {
-
-      prompt(
-        "Copy this link:",
-        location.href
-      );
-
-    }
-
-  }
-);
-
-
-/* ============================================================
-   STREET DATA
-============================================================ */
-
-function hav(
-  a,
-  b,
-  c,
-  d
-) {
-
-  const t =
-    Math.PI / 180;
-
-  const dl =
-    (c - a) * t;
-
-  const dn =
-    (d - b) * t;
-
-  const x =
-    Math.sin(dl / 2) ** 2 +
-
-    Math.cos(a * t) *
-    Math.cos(c * t) *
-    Math.sin(dn / 2) ** 2;
-
-  return (
-    12742000 *
-    Math.asin(
-      Math.sqrt(x)
-    )
-  );
-
+/* ---------------- STREET DATA ---------------- */
+function hav(a, b, c, d) {
+  const t = Math.PI / 180, dl = (c - a) * t, dn = (d - b) * t;
+  const x = Math.sin(dl / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
+  return 12742000 * Math.asin(Math.sqrt(x));
 }
 
-
-async function fetchNet(
-  lat,
-  lng,
-  r
-) {
-
+async function fetchNet(lat, lng, r) {
   const query =
     `[out:json][timeout:30];` +
-
     `way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]` +
-
-    `["foot"!="no"]` +
-
-    `["access"!="private"]` +
-
-    `(around:${r},${lat},${lng});` +
-
+    `["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});` +
     `out body;>;out skel qt;`;
-
   return overpass(query);
-
 }
-
 
 async function overpass(query) {
-
   let err;
-
-  for (
-    let attempt = 0;
-    attempt < 2;
-    attempt++
-  ) {
-
-    for (
-      const url of ENDPOINTS
-    ) {
-
-      const ctl =
-        new AbortController();
-
-      const timer =
-        setTimeout(
-          () =>
-            ctl.abort(),
-          25000
-        );
-
+  for (let attempt = 0; attempt < 2; attempt++) {
+    for (const url of ENDPOINTS) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 25000);
       try {
-
-        const res =
-          await fetch(
-            url,
-            {
-              method: "POST",
-
-              body:
-                "data=" +
-                encodeURIComponent(
-                  query
-                ),
-
-              headers: {
-                "Content-Type":
-                  "application/x-www-form-urlencoded"
-              },
-
-              signal: ctl.signal
-            }
-          );
-
-        if (!res.ok) {
-
-          throw new Error(
-            "server replied " +
-            res.status
-          );
-
-        }
-
+        const res = await fetch(url, {
+          method: "POST",
+          body: "data=" + encodeURIComponent(query),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          signal: ctl.signal
+        });
+        if (!res.ok) throw new Error("server replied " + res.status);
         return await res.json();
-
       } catch (e) {
-
         err = e;
-
       } finally {
-
         clearTimeout(timer);
-
       }
-
     }
-
-    await new Promise(
-      done =>
-        setTimeout(
-          done,
-          3000
-        )
-    );
-
+    await new Promise(done => setTimeout(done, 3000));
   }
-
   throw err;
-
 }
-
 
 function build(j) {
-
-  const nodes =
-    new Map();
-
-  const adj =
-    new Map();
-
-  const segs = [];
-
-
-  for (
-    const e of j.elements
-  ) {
-
-    if (
-      e.type === "node"
-    ) {
-
-      nodes.set(
-        e.id,
-        [e.lat, e.lon]
-      );
-
+  const nodes = new Map(), adj = new Map(), segs = [];
+  for (const e of j.elements) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
+  for (const e of j.elements) {
+    if (e.type !== "way") continue;
+    for (let i = 0; i < e.nodes.length - 1; i++) {
+      const a = e.nodes[i], b = e.nodes[i + 1], pa = nodes.get(a), pb = nodes.get(b);
+      if (!pa || !pb) continue;
+      const len = hav(pa[0], pa[1], pb[0], pb[1]);
+      if (!adj.has(a)) adj.set(a, []);
+      if (!adj.has(b)) adj.set(b, []);
+      adj.get(a).push([b, len]);
+      adj.get(b).push([a, len]);
+      segs.push([a, b, len]);
     }
-
   }
+  return { nodes, adj, segs };
+}
 
-
-  for (
-    const e of j.elements
-  ) {
-
-    if (
-      e.type !== "way"
-    ) continue;
-
-
-    for (
-      let i = 0;
-      i < e.nodes.length - 1;
-      i++
-    ) {
-
-      const a =
-        e.nodes[i];
-
-      const b =
-        e.nodes[i + 1];
-
-      const pa =
-        nodes.get(a);
-
-      const pb =
-        nodes.get(b);
-
-      if (!pa || !pb)
-        continue;
-
-
-      const len =
-        hav(
-          pa[0],
-          pa[1],
-          pb[0],
-          pb[1]
-        );
-
-
-      if (!adj.has(a))
-        adj.set(a, []);
-
-      if (!adj.has(b))
-        adj.set(b, []);
-
-
-      adj.get(a).push([
-        b,
-        len
-      ]);
-
-      adj.get(b).push([
-        a,
-        len
-      ]);
-
-
-      segs.push([
-        a,
-        b,
-        len
-      ]);
-
+/* ---------------- DIJKSTRA ---------------- */
+function dijkstra(g, src, spd, limit) {
+  const dist = new Map([[src, 0]]), h = [[0, src]];
+  const push = x => {
+    h.push(x);
+    let i = h.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (h[p][0] <= h[i][0]) break;
+      [h[p], h[i]] = [h[i], h[p]];
+      i = p;
     }
-
-  }
-
-
-  return {
-    nodes,
-    adj,
-    segs
   };
-
-}
-
-
-/* ============================================================
-   DIJKSTRA
-============================================================ */
-
-function dijkstra(
-  g,
-  src,
-  spd,
-  limit
-) {
-
-  const dist =
-    new Map([
-      [src, 0]
-    ]);
-
-  const h =
-    [[0, src]];
-
-
-  const push =
-    x => {
-
-      h.push(x);
-
-      let i =
-        h.length - 1;
-
-      while (i > 0) {
-
-        const p =
-          (i - 1) >> 1;
-
-        if (
-          h[p][0] <=
-          h[i][0]
-        ) break;
-
-        [
-          h[p],
-          h[i]
-        ] =
-          [
-            h[i],
-            h[p]
-          ];
-
-        i = p;
-
+  const pop = () => {
+    const top = h[0], last = h.pop();
+    if (h.length) {
+      h[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i;
+        if (l < h.length && h[l][0] < h[m][0]) m = l;
+        if (r < h.length && h[r][0] < h[m][0]) m = r;
+        if (m === i) break;
+        [h[m], h[i]] = [h[i], h[m]];
+        i = m;
       }
-
-    };
-
-
-  const pop =
-    () => {
-
-      const top =
-        h[0];
-
-      const last =
-        h.pop();
-
-      if (h.length) {
-
-        h[0] =
-          last;
-
-        let i = 0;
-
-        for (;;) {
-
-          const l =
-            2 * i + 1;
-
-          const r =
-            l + 1;
-
-          let m = i;
-
-
-          if (
-            l < h.length &&
-            h[l][0] <
-            h[m][0]
-          )
-            m = l;
-
-
-          if (
-            r < h.length &&
-            h[r][0] <
-            h[m][0]
-          )
-            m = r;
-
-
-          if (m === i)
-            break;
-
-
-          [
-            h[m],
-            h[i]
-          ] =
-            [
-              h[i],
-              h[m]
-            ];
-
-          i = m;
-
-        }
-
-      }
-
-      return top;
-
-    };
-
-
+    }
+    return top;
+  };
   while (h.length) {
-
-    const [
-      d,
-      u
-    ] =
-      pop();
-
-
-    if (
-      d >
-      dist.get(u)
-    )
-      continue;
-
-
-    for (
-      const [
-        v,
-        len
-      ] of (
-        g.adj.get(u) ||
-        []
-      )
-    ) {
-
-      const nd =
-        d +
-        len / spd;
-
-
-      if (
-        nd <= limit &&
-        nd <
-          (
-            dist.has(v)
-              ? dist.get(v)
-              : Infinity
-          )
-      ) {
-
-        dist.set(
-          v,
-          nd
-        );
-
-        push([
-          nd,
-          v
-        ]);
-
+    const [d, u] = pop();
+    if (d > dist.get(u)) continue;
+    for (const [v, len] of (g.adj.get(u) || [])) {
+      const nd = d + len / spd;
+      if (nd <= limit && nd < (dist.has(v) ? dist.get(v) : Infinity)) {
+        dist.set(v, nd);
+        push([nd, v]);
       }
-
     }
-
   }
-
-
   return dist;
-
 }
 
-
-/* ============================================================
-   START NODE
-============================================================ */
-
-function startNode(
-  g,
-  lat,
-  lng
-) {
-
-  const comp =
-    new Map();
-
-  const sizes = [];
-
-
-  for (
-    const s0 of
-    g.adj.keys()
-  ) {
-
-    if (
-      comp.has(s0)
-    )
-      continue;
-
-
-    const id =
-      sizes.length;
-
-    const stack =
-      [s0];
-
+/* Start from the nearest street in the main connected network. */
+function startNode(g, lat, lng) {
+  const comp = new Map(), sizes = [];
+  for (const s0 of g.adj.keys()) {
+    if (comp.has(s0)) continue;
+    const id = sizes.length, stack = [s0];
     let n = 0;
-
-    comp.set(
-      s0,
-      id
-    );
-
-
-    while (
-      stack.length
-    ) {
-
-      const u =
-        stack.pop();
-
+    comp.set(s0, id);
+    while (stack.length) {
+      const u = stack.pop();
       n++;
-
-
-      for (
-        const [
-          v
-        ] of g.adj.get(u)
-      ) {
-
-        if (
-          !comp.has(v)
-        ) {
-
-          comp.set(
-            v,
-            id
-          );
-
-          stack.push(v);
-
-        }
-
+      for (const [v] of g.adj.get(u)) {
+        if (!comp.has(v)) { comp.set(v, id); stack.push(v); }
       }
-
     }
-
-
     sizes.push(n);
-
   }
-
-
-  const minSize =
-    sizes.reduce(
-      (a, b) =>
-        Math.max(a, b),
-      0
-    ) * 0.1;
-
-
-  const k =
-    Math.cos(
-      lat *
-      Math.PI / 180
-    );
-
-
-  let best = null;
-
-  let bd =
-    Infinity;
-
-
-  for (
-    const [
-      id,
-      c
-    ] of comp
-  ) {
-
-    if (
-      sizes[c] <
-      minSize
-    )
-      continue;
-
-
-    const p =
-      g.nodes.get(id);
-
-
-    const d =
-      (p[0] - lat) ** 2 +
-
-      (
-        (p[1] - lng) *
-        k
-      ) ** 2;
-
-
-    if (d < bd) {
-
-      bd = d;
-
-      best = id;
-
-    }
-
+  const minSize = sizes.reduce((a, b) => Math.max(a, b), 0) * 0.1;
+  const k = Math.cos(lat * Math.PI / 180);
+  let best = null, bd = Infinity;
+  for (const [id, c] of comp) {
+    if (sizes[c] < minSize) continue;
+    const p = g.nodes.get(id), d = (p[0] - lat) ** 2 + ((p[1] - lng) * k) ** 2;
+    if (d < bd) { bd = d; best = id; }
   }
-
-
   return best;
-
 }
 
-
-/* ============================================================
-   DRAW WALKING MAP
-============================================================ */
-
-let data = null;
-
-let reqId = 0;
-
-let run = null;
-
+/* ---------------- DRAW WALKING MAP ---------------- */
+let data = null, reqId = 0, run = null;
 
 function render() {
-
-  const g =
-    data.g;
-
-  const T =
-    st.min * 60;
-
-
+  const g = data.g, T = st.min * 60;
   layers.clearLayers();
 
-
-  const src =
-    startNode(
-      g,
-      st.lat,
-      st.lng
-    );
-
-
-  if (
-    src == null
-  ) {
-
+  const src = startNode(g, st.lat, st.lng);
+  if (src == null) {
     run = null;
-
     extras.clearLayers();
-
-    $("reach").textContent =
-      "0 m";
-
-    setStatus(
-      "No walkable streets found here. Try another spot."
-    );
-
+    $("reach").textContent = "0 m";
+    setStatus("No walkable streets found here. Try another spot.");
     return;
-
   }
 
-
-  const me =
-    dijkstra(
-      g,
-      src,
-      st.spd,
-      T
-    );
-
-
-  const base =
-    dijkstra(
-      g,
-      src,
-      1.4,
-      T
-    );
-
-
-  const grey = [];
-
-  const bins =
-    COLORS.map(
-      () => []
-    );
-
-
+  const me = dijkstra(g, src, st.spd, T);
+  const base = dijkstra(g, src, 1.4, T);
+  const grey = [], bins = COLORS.map(() => []);
   let reachM = 0;
 
-
-  for (
-    const [
-      a,
-      b,
-      len
-    ] of g.segs
-  ) {
-
-    const line = [
-      g.nodes.get(a),
-      g.nodes.get(b)
-    ];
-
-
-    const t =
-      Math.min(
-        me.has(a)
-          ? me.get(a)
-          : Infinity,
-
-        me.has(b)
-          ? me.get(b)
-          : Infinity
-      );
-
-
-    if (
-      t <= T
-    ) {
-
-      bins[
-        Math.min(
-          COLORS.length - 1,
-
-          Math.floor(
-            t /
-            T *
-            COLORS.length
-          )
-        )
-      ].push(line);
-
+  for (const [a, b, len] of g.segs) {
+    const line = [g.nodes.get(a), g.nodes.get(b)];
+    const t = Math.min(me.has(a) ? me.get(a) : Infinity, me.has(b) ? me.get(b) : Infinity);
+    if (t <= T) {
+      bins[Math.min(COLORS.length - 1, Math.floor(t / T * COLORS.length))].push(line);
       reachM += len;
-
-    } else if (
-      base.has(a) ||
-      base.has(b)
-    ) {
-
+    } else if (base.has(a) || base.has(b)) {
       grey.push(line);
-
     }
-
   }
 
+  L.polyline(grey, { color: GREY, weight: 3, opacity: 0.85, interactive: false }).addTo(layers);
+  bins.forEach((lines, i) =>
+    L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95, interactive: false }).addTo(layers));
 
-  L.polyline(
-    grey,
-    {
-      color: GREY,
-      weight: 3,
-      opacity: 0.85,
-      interactive: false
-    }
-  ).addTo(layers);
+  $("reach").textContent = fmt(Math.round(reachM)) + " m";
 
-
-  bins.forEach(
-    (lines, i) =>
-
-      L.polyline(
-        lines,
-        {
-          color: COLORS[i],
-          weight: 4,
-          opacity: 0.95,
-          interactive: false
-        }
-      ).addTo(layers)
-  );
-
-
-  $("reach").textContent =
-    fmt(
-      Math.round(
-        reachM
-      )
-    ) + " m";
-
-
-  const sp =
-    g.nodes.get(src);
-
-
-  const off =
-    Math.round(
-      hav(
-        st.lat,
-        st.lng,
-        sp[0],
-        sp[1]
-      )
-    );
-
-
-  run = {
-    me
-  };
-
-
+  const sp = g.nodes.get(src);
+  const off = Math.round(hav(st.lat, st.lng, sp[0], sp[1]));
+  run = { me };
   scheduleElev();
-
-
-  setStatus(
-    off > 75
-      ? `Started from the nearest connected street, ${off} m from your point.`
-      : ""
-  );
-
+  setStatus(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
 }
-
 
 async function load() {
-
-  const id =
-    ++reqId;
-
-  const r =
-    1.8 *
-    15 *
-    60 +
-    100;
-
-
-  if (
-    data &&
-    data.lat === st.lat &&
-    data.lng === st.lng &&
-    data.r >= r
-  ) {
-
-    render();
-
-    return;
-
-  }
-
+  const id = ++reqId, r = 1.8 * 15 * 60 + 100;
+  if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
 
   layers.clearLayers();
-
   extras.clearLayers();
-
   run = null;
-
   setL("");
-
-  $("reach").textContent =
-    "…";
-
-  setStatus(
-    "Loading street network…"
-  );
-
+  $("reach").textContent = "…";
+  setStatus("Loading street network…");
 
   try {
-
-    const j =
-      await fetchNet(
-        st.lat,
-        st.lng,
-        r
-      );
-
-
-    if (
-      id !== reqId
-    )
-      return;
-
-
-    data = {
-
-      lat: st.lat,
-
-      lng: st.lng,
-
-      r,
-
-      g: build(j),
-
-      elev: new Map()
-
-    };
-
-
+    const j = await fetchNet(st.lat, st.lng, r);
+    if (id !== reqId) return;
+    data = { lat: st.lat, lng: st.lng, r, g: build(j), elev: new Map() };
     render();
-
   } catch (e) {
-
-    if (
-      id === reqId
-    ) {
-
-      setStatus(
-        "Could not load street data (" +
-        (
-          e.name ===
-          "AbortError"
-            ? "timed out"
-            : e.message
-        ) +
-        "). Wait a moment, then pick the place again."
-      );
-
+    if (id === reqId) {
+      setStatus("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) +
+        "). Wait a moment, then pick the place again.");
     }
-
   }
-
 }
 
+/* ---------------- ELEVATION ---------------- */
+const setL = t => { $("lstatus").textContent = t; };
+const setN = (id, t) => { const el = $("n-" + id); if (el) el.textContent = t; };
+let elevId = 0, elevTimer = null;
 
-/* ============================================================
-   ELEVATION
-============================================================ */
-
-const setL =
-  t =>
-    $("lstatus").textContent =
-      t;
-
-
-const setN =
-  (id, t) => {
-
-    const el =
-      $("n-" + id);
-
-    if (el)
-      el.textContent = t;
-
-  };
-
-
-let elevId = 0;
-
-let elevTimer = null;
-
-
-async function fetchElev(
-  pts
-) {
-
+async function fetchElev(pts) {
   const out = [];
-
-
-  for (
-    let i = 0;
-    i < pts.length;
-    i += 100
-  ) {
-
-    const b =
-      pts.slice(
-        i,
-        i + 100
-      );
-
-
-    const url =
-      "https://api.open-meteo.com/v1/elevation?" +
-
-      "latitude=" +
-      b
-        .map(
-          p =>
-            p[0].toFixed(5)
-        )
-        .join(",") +
-
-      "&longitude=" +
-      b
-        .map(
-          p =>
-            p[1].toFixed(5)
-        )
-        .join(",");
-
-
-    const res =
-      await fetch(url);
-
-
-    if (!res.ok)
-      throw new Error(
-        "elevation service replied " +
-        res.status
-      );
-
-
-    out.push(
-      ...(
-        await res.json()
-      ).elevation
-    );
-
+  for (let i = 0; i < pts.length; i += 100) {
+    const b = pts.slice(i, i + 100);
+    const url = "https://api.open-meteo.com/v1/elevation?latitude=" +
+      b.map(p => p[0].toFixed(5)).join(",") +
+      "&longitude=" + b.map(p => p[1].toFixed(5)).join(",");
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("elevation service replied " + res.status);
+    out.push(...(await res.json()).elevation);
   }
-
-
   return out;
-
 }
-
 
 function elevPoints() {
-
-  const g =
-    data.g;
-
-  const dLat =
-    250 / 111320;
-
-  const dLng =
-    dLat /
-    Math.cos(
-      st.lat *
-      Math.PI / 180
-    );
-
-  const seen =
-    new Set();
-
-  const out = [];
-
-
-  for (
-    const id of
-    run.me.keys()
-  ) {
-
-    const p =
-      g.nodes.get(id);
-
-
-    const key =
-      Math.floor(
-        p[0] / dLat
-      ) +
-      "," +
-      Math.floor(
-        p[1] / dLng
-      );
-
-
-    if (
-      seen.has(key)
-    )
-      continue;
-
-
+  const g = data.g, dLat = 250 / 111320, dLng = dLat / Math.cos(st.lat * Math.PI / 180);
+  const seen = new Set(), out = [];
+  for (const id of run.me.keys()) {
+    const p = g.nodes.get(id);
+    const key = Math.floor(p[0] / dLat) + "," + Math.floor(p[1] / dLng);
+    if (seen.has(key)) continue;
     seen.add(key);
-
-
-    out.push({
-      id,
-      ll: p
-    });
-
-
-    if (
-      out.length >= 300
-    )
-      break;
-
+    out.push({ id, ll: p });
+    if (out.length >= 300) break;
   }
-
-
   return out;
-
 }
-
 
 function scheduleElev() {
-
-  clearTimeout(
-    elevTimer
+  clearTimeout(elevTimer);
+  elevTimer = setTimeout(
+    () => showElev().catch(e => setL("Could not draw elevation: " + e.message)),
+    350
   );
-
-
-  elevTimer =
-    setTimeout(
-      () =>
-        showElev()
-          .catch(
-            e =>
-              setL(
-                "Could not draw elevation: " +
-                e.message
-              )
-          ),
-      350
-    );
-
 }
-
 
 async function showElev() {
-
-  const id =
-    ++elevId;
-
-  const d =
-    data;
-
-
+  const id = ++elevId, d = data;
   extras.clearLayers();
+  setN("elev", "");
+  if (!d || !run || !$("elev-layer").checked) { setL(""); return; }
 
-  setN(
-    "elev",
-    ""
-  );
-
-
-  if (
-    !d ||
-    !run ||
-    !$("elev-layer").checked
-  ) {
-
-    setL("");
-
-    return;
-
-  }
-
-
-  const pts =
-    elevPoints();
-
-
-  const need =
-    pts.filter(
-      p =>
-        !d.elev.has(
-          p.id
-        )
-    );
-
+  const pts = elevPoints();
+  const need = pts.filter(p => !d.elev.has(p.id));
 
   if (need.length) {
-
-    setL(
-      "Loading elevation…"
-    );
-
-
+    setL("Loading elevation…");
     try {
-
-      const h =
-        await fetchElev(
-          need.map(
-            p =>
-              p.ll
-          )
-        );
-
-
-      need.forEach(
-        (p, i) =>
-          d.elev.set(
-            p.id,
-            h[i]
-          )
-      );
-
-
-      if (
-        id === elevId
-      )
-        setL("");
-
+      const h = await fetchElev(need.map(p => p.ll));
+      need.forEach((p, i) => d.elev.set(p.id, h[i]));
+      if (id === elevId) setL("");
     } catch (e) {
-
-      if (
-        id === elevId
-      ) {
-
-        setL(
-          "Could not load elevation (" +
-          (
-            e.name ===
-            "AbortError"
-              ? "timed out"
-              : e.message
-          ) +
-          "). Toggle it to try again."
-        );
-
+      if (id === elevId) {
+        setL("Could not load elevation (" + (e.name === "AbortError" ? "timed out" : e.message) +
+          "). Toggle it to try again.");
       }
-
       return;
-
     }
-
   } else {
-
     setL("");
-
   }
 
+  if (id !== elevId || d !== data) return;
 
-  if (
-    id !== elevId ||
-    d !== data
-  )
-    return;
-
-
-  let lo =
-    Infinity;
-
-  let hi =
-    -Infinity;
-
-
-  for (
-    const p of pts
-  ) {
-
-    const h =
-      d.elev.get(
-        p.id
-      );
-
-
-    if (
-      h == null ||
-      isNaN(h)
-    )
-      continue;
-
-
-    lo =
-      Math.min(
-        lo,
-        h
-      );
-
-
-    hi =
-      Math.max(
-        hi,
-        h
-      );
-
-
-    L.marker(
-      p.ll,
-      {
-        interactive: false,
-        keyboard: false,
-
-        icon:
-          L.divIcon({
-            className: "",
-            iconSize: [
-              0,
-              0
-            ],
-
-            html:
-              '<span class="elev">' +
-              Math.round(h) +
-              "</span>"
-          })
-
-      }
-    ).addTo(extras);
-
+  let lo = Infinity, hi = -Infinity;
+  for (const p of pts) {
+    const h = d.elev.get(p.id);
+    if (h == null || isNaN(h)) continue;
+    lo = Math.min(lo, h);
+    hi = Math.max(hi, h);
+    L.marker(p.ll, {
+      interactive: false,
+      keyboard: false,
+      icon: L.divIcon({
+        className: "",
+        iconSize: [0, 0],
+        html: '<span class="elev">' + Math.round(h) + "</span>"
+      })
+    }).addTo(extras);
   }
-
-
-  if (
-    lo <= hi
-  ) {
-
-    setN(
-      "elev",
-
-      Math.round(lo) +
-      " to " +
-      Math.round(hi) +
-      " m"
-    );
-
-  }
-
+  if (lo <= hi) setN("elev", Math.round(lo) + " to " + Math.round(hi) + " m");
 }
 
+$("elev-layer").addEventListener("change", () => {
+  writeHash();
+  showElev().catch(e => setL("Could not draw elevation: " + e.message));
+});
 
-$("elev-layer").addEventListener(
-  "change",
-  () => {
-
-    writeHash();
-
-    showElev()
-      .catch(
-        e =>
-          setL(
-            "Could not draw elevation: " +
-            e.message
-          )
-      );
-
-  }
-);
-
-
-/* ============================================================
-   LIVE LOCAL TEMPERATURE — Open-Meteo
-============================================================ */
-
-const WEATHER_API =
-  "https://api.open-meteo.com/v1/forecast";
-
-const WEATHER_REFRESH =
-  15 * 60 * 1000;
-
+/* ---------------- LIVE LOCAL TEMPERATURE (Open-Meteo) ---------------- */
+const WEATHER_API = "https://api.open-meteo.com/v1/forecast";
+const WEATHER_REFRESH = 15 * 60 * 1000;
 let temperatureRequestId = 0;
 let temperatureRefreshTimer = null;
 
 async function loadTemperature() {
-
   const id = ++temperatureRequestId;
-
   clearTimeout(temperatureRefreshTimer);
 
   const body = $("temperature-body");
-
-  body.innerHTML = `
-    <div class="hint">Loading local temperature…</div>
-  `;
+  body.innerHTML = '<div class="hint">Loading local temperature…</div>';
 
   try {
-
     const params = new URLSearchParams({
       latitude: st.lat.toFixed(5),
       longitude: st.lng.toFixed(5),
@@ -2167,42 +626,27 @@ async function loadTemperature() {
       temperature_unit: "celsius"
     });
 
-    const response = await fetch(
-      WEATHER_API + "?" + params.toString(),
-      {
-        mode: "cors",
-        headers: { Accept: "application/json" },
-        cache: "no-store"
-      }
-    );
+    const response = await fetch(WEATHER_API + "?" + params.toString(), {
+      mode: "cors",
+      headers: { Accept: "application/json" },
+      cache: "no-store"
+    });
+    if (!response.ok) throw new Error(`Weather request failed (${response.status})`);
 
-    if (!response.ok) {
-      throw new Error(`Weather request failed (${response.status})`);
-    }
-
-    const data = await response.json();
-
+    const wx = await response.json();
     if (id !== temperatureRequestId) return;
 
-    const current = data.current || {};
-    const units = data.current_units || {};
+    const current = wx.current || {};
     const temperature = Number(current.temperature_2m);
     const apparent = Number(current.apparent_temperature);
-
     if (!Number.isFinite(temperature)) {
       throw new Error("No current temperature was returned for this location.");
     }
 
     const tempText = `${Math.round(temperature)}°C`;
-    const feelsText = Number.isFinite(apparent)
-      ? `Feels like ${Math.round(apparent)}°C`
-      : "";
-
+    const feelsText = Number.isFinite(apparent) ? `Feels like ${Math.round(apparent)}°C` : "";
     const updated = current.time
-      ? new Date(current.time).toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit"
-        })
+      ? new Date(current.time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
       : "";
 
     body.innerHTML = `
@@ -2216,9 +660,7 @@ async function loadTemperature() {
         </div>
       </div>
     `;
-
   } catch (e) {
-
     if (id === temperatureRequestId) {
       body.innerHTML = `
         <div class="temp-error">
@@ -2227,32 +669,20 @@ async function loadTemperature() {
         </div>
       `;
     }
-
   }
 
-  temperatureRefreshTimer = setTimeout(
-    () => loadTemperature(),
-    WEATHER_REFRESH
-  );
+  if (id !== temperatureRequestId) return;
+
+  temperatureRefreshTimer = setTimeout(() => loadTemperature(), WEATHER_REFRESH);
 }
 
-
-/* ============================================================
-   INITIALISE
-============================================================ */
-
-$("elev-layer").checked =
-  q.get("elev") === "1";
-
+/* ---------------- INITIALISE ---------------- */
+$("elev-layer").checked = q.get("elev") === "1";
 
 sync();
-
 load();
-
 loadTemperature();
-
 initGoogleTraffic();
-
 </script>
 
 </body>
