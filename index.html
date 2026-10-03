@@ -367,6 +367,87 @@ a {
 
 </div>
 
+
+<script>
+  /* ============================================================
+     GOOGLE MAPS TRAFFIC UNDERLAY
+     Replace the placeholder below with your Google Maps JavaScript
+     API key. The key should be restricted to this site's domain.
+  ============================================================ */
+
+  const GOOGLE_MAPS_API_KEY = "GOOGLE_MAPS_API_KEY";
+
+  let googleMap = null;
+  let googleTraffic = null;
+  let googleMapsReady = null;
+
+  function loadGoogleMaps() {
+    if (googleMapsReady) return googleMapsReady;
+
+    googleMapsReady = new Promise((resolve, reject) => {
+      if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "GOOGLE_MAPS_API_KEY") {
+        reject(new Error("Add your Google Maps JavaScript API key first."));
+        return;
+      }
+
+      window.__googleMapsTrafficReady = resolve;
+
+      const script = document.createElement("script");
+      script.src =
+        "https://maps.googleapis.com/maps/api/js" +
+        "?key=" + encodeURIComponent(GOOGLE_MAPS_API_KEY) +
+        "&callback=__googleMapsTrafficReady" +
+        "&loading=async";
+      script.async = true;
+      script.defer = true;
+      script.onerror = () =>
+        reject(new Error("Google Maps JavaScript API could not load."));
+      document.head.appendChild(script);
+    });
+
+    return googleMapsReady;
+  }
+
+  async function initGoogleTraffic() {
+    const el = document.getElementById("google-map");
+
+    try {
+      await loadGoogleMaps();
+
+      googleMap = new google.maps.Map(el, {
+        center: { lat: st.lat, lng: st.lng },
+        zoom: st.z,
+        disableDefaultUI: true,
+        gestureHandling: "none",
+        clickableIcons: false,
+        keyboardShortcuts: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        mapTypeControl: false
+      });
+
+      googleTraffic = new google.maps.TrafficLayer();
+      googleTraffic.setMap(googleMap);
+
+      syncGoogleMap();
+
+    } catch (e) {
+      console.warn("Google traffic layer:", e.message || e);
+      el.style.display = "none";
+    }
+  }
+
+  function syncGoogleMap() {
+    if (!googleMap) return;
+
+    googleMap.setCenter({
+      lat: st.lat,
+      lng: st.lng
+    });
+    googleMap.setZoom(map.getZoom());
+  }
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
 <script>
@@ -474,10 +555,11 @@ L.control.zoom({
 }).addTo(map);
 
 
-L.tileLayer(
+const osmTiles = L.tileLayer(
   "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   {
     maxZoom: 19,
+    opacity: 0,
     attribution:
       "&copy; OpenStreetMap contributors"
   }
@@ -594,6 +676,8 @@ function update() {
 
   writeHash();
 
+  syncGoogleMap();
+
   load();
 
 }
@@ -655,7 +739,10 @@ marker.on(
 
 map.on(
   "zoomend",
-  writeHash
+  () => {
+    writeHash();
+    syncGoogleMap();
+  }
 );
 
 
@@ -2080,23 +2167,14 @@ async function loadTemperature() {
       temperature_unit: "celsius"
     });
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    let response;
-    try {
-      response = await fetch(
-        WEATHER_API + "?" + params.toString(),
-        {
-          mode: "cors",
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-          signal: controller.signal
-        }
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await fetch(
+      WEATHER_API + "?" + params.toString(),
+      {
+        mode: "cors",
+        headers: { Accept: "application/json" },
+        cache: "no-store"
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Weather request failed (${response.status})`);
@@ -2133,7 +2211,7 @@ async function loadTemperature() {
         <div class="temp-info">
           <div class="temp-location">At your selected location</div>
           <div class="temp-meta">
-            ${feelsText}${updated ? ` · Updated ${updated}` : ""}
+            ${escapeHTML(feelsText)}${updated ? ` · Updated ${escapeHTML(updated)}` : ""}
           </div>
         </div>
       </div>
@@ -2142,15 +2220,10 @@ async function loadTemperature() {
   } catch (e) {
 
     if (id === temperatureRequestId) {
-      const message =
-        e && e.name === "AbortError"
-          ? "Weather service timed out. It will try again in 15 minutes."
-          : (e.message || String(e));
-
       body.innerHTML = `
         <div class="temp-error">
           Could not load the local temperature.
-          <div class="hint">${message}</div>
+          <div class="hint">${escapeHTML(e.message || String(e))}</div>
         </div>
       `;
     }
@@ -2177,6 +2250,8 @@ sync();
 load();
 
 loadTemperature();
+
+initGoogleTraffic();
 
 </script>
 
