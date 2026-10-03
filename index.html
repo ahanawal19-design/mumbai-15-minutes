@@ -3,443 +3,3113 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>15 minutes in Mumbai. For whom?</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+>
+
 <style>
-  html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  #map { height: 100%; }
-  #panel {
-    position: absolute; z-index: 1000; top: 10px; left: 10px; width: 310px;
-    max-width: calc(100% - 20px); max-height: calc(100% - 20px); overflow: auto;
-    box-sizing: border-box; background: #fff; color: #1f2933;
-    padding: 14px 16px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.28);
-    font-size: 14px; line-height: 1.45;
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+#map {
+  height: 100%;
+}
+
+#panel {
+  position: absolute;
+  z-index: 1000;
+  top: 10px;
+  left: 10px;
+  width: 310px;
+  max-width: calc(100% - 20px);
+  max-height: calc(100% - 20px);
+  overflow: auto;
+  box-sizing: border-box;
+  background: #fff;
+  color: #1f2933;
+  padding: 14px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.28);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0 0 10px;
+}
+
+label {
+  display: block;
+  margin: 10px 0 2px;
+  font-weight: 600;
+}
+
+select,
+input[type=range],
+button {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+select,
+button {
+  font: inherit;
+  padding: 6px 8px;
+}
+
+button {
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+#legend {
+  height: 10px;
+  border-radius: 5px;
+  margin-top: 12px;
+}
+
+#legend-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #52606d;
+}
+
+#grey {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #52606d;
+  margin-top: 6px;
+}
+
+#grey i {
+  display: inline-block;
+  width: 24px;
+  height: 4px;
+  background: #9aa0a6;
+  border-radius: 2px;
+}
+
+#status {
+  color: #52606d;
+  margin: 0 0 10px;
+}
+
+#status:empty {
+  display: none;
+}
+
+#stats {
+  margin-top: 12px;
+}
+
+#stats div + div {
+  margin-top: 2px;
+}
+
+small {
+  display: block;
+  color: #52606d;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+a {
+  color: #0b6e8a;
+}
+
+.grp {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  margin-top: 12px;
+  padding: 8px 10px 10px;
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  margin: 8px 0 0;
+}
+
+.opt input {
+  width: auto;
+  margin: 0;
+}
+
+.opt .n {
+  margin-left: auto;
+  color: #52606d;
+  font-size: 12px;
+  text-align: right;
+}
+
+.hint {
+  font-size: 12px;
+  color: #52606d;
+  margin: 4px 0 0;
+}
+
+#lstatus {
+  font-size: 13px;
+  color: #52606d;
+  margin-top: 8px;
+}
+
+#lstatus:empty {
+  display: none;
+}
+
+/* ---------------- AQI PANEL ---------------- */
+
+#aq h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.aq-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aq-num {
+  min-width: 58px;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 10px 6px;
+  border-radius: 6px;
+}
+
+.aq-info {
+  min-width: 0;
+}
+
+.aq-cat {
+  font-weight: 700;
+}
+
+.aq-station {
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.aq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 12px;
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+
+.aq-source {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+.aq-refresh {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+.aq-error {
+  color: #8a3b12;
+  font-size: 13px;
+}
+
+/* ---------------- ELEVATION LABELS ---------------- */
+
+.elev {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font: 600 11px system-ui, sans-serif;
+  padding: 1px 5px;
+  border-radius: 9px;
+  background: #fff;
+  border: 1px solid #495057;
+  color: #212529;
+  white-space: nowrap;
+}
+
+/* ---------------- AQI STATION MARKER ---------------- */
+
+.aq-station-marker {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 1px 5px rgba(0,0,0,.45);
+}
+
+.aq-station-pulse {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  animation: aqpulse 2s infinite;
+}
+
+@keyframes aqpulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(11,110,138,.35);
   }
-  h1 { font-size: 20px; margin: 0 0 6px; line-height: 1.2; }
-  p { margin: 0 0 10px; }
-  label { display: block; margin: 10px 0 2px; font-weight: 600; }
-  select, input[type=range], button { width: 100%; box-sizing: border-box; }
-  select, button { font: inherit; padding: 6px 8px; }
-  button { margin-top: 10px; cursor: pointer; }
-  #legend { height: 10px; border-radius: 5px; margin-top: 12px; }
-  #legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: #52606d; }
-  #grey { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #52606d; margin-top: 6px; }
-  #grey i { display: inline-block; width: 24px; height: 4px; background: #9aa0a6; border-radius: 2px; }
-  #status { color: #52606d; margin: 0 0 10px; }
-  #status:empty { display: none; }
-  #stats { margin-top: 12px; }
-  #stats div + div { margin-top: 2px; }
-  small { display: block; color: #52606d; font-size: 12px; margin-top: 10px; }
-  a { color: #0b6e8a; }
-  .grp { border: 1px solid #d0d7de; border-radius: 6px; margin-top: 12px; padding: 6px 10px 8px; }
-  .opt { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 8px 0 0; }
-  .opt input { width: auto; margin: 0; }
-  .opt .n { margin-left: auto; color: #52606d; font-size: 12px; text-align: right; }
-  .hint { font-size: 12px; color: #52606d; margin: 4px 0 0; }
-  #lstatus { font-size: 13px; color: #52606d; margin-top: 8px; }
-  #lstatus:empty { display: none; }
-  #aq h2 { font-size: 14px; margin: 0 0 8px; }
-  .aq-main { display: flex; align-items: center; gap: 10px; }
-  .aq-num { min-width: 54px; box-sizing: border-box; text-align: center; font-size: 26px; font-weight: 700; line-height: 1; padding: 10px 6px; border-radius: 6px; }
-  .aq-cat { font-weight: 600; }
-  .aq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; margin: 10px 0 4px; font-size: 13px; }
-  .elev { position: absolute; transform: translate(-50%, -50%); font: 600 11px system-ui, sans-serif; padding: 1px 5px;
-    border-radius: 9px; background: #fff; border: 1px solid #495057; color: #212529; white-space: nowrap; }
-  :focus-visible { outline: 3px solid #1c7ed6; outline-offset: 2px; }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(11,110,138,0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(11,110,138,0);
+  }
+}
+
+:focus-visible {
+  outline: 3px solid #1c7ed6;
+  outline-offset: 2px;
+}
+
 </style>
 </head>
+
 <body>
+
 <div id="map"></div>
 
 <div id="panel">
+
   <h1>15 minutes in Mumbai. For whom?</h1>
-  <p>Click the map or drag the marker. Coloured streets are what you can reach on foot with your settings.</p>
+
+  <p>
+    Click the map or drag the marker. Coloured streets are what you can reach
+    on foot with your settings.
+  </p>
+
   <div id="status" role="status"></div>
 
   <label for="city">Start from</label>
+
   <select id="city"></select>
 
-  <label for="min">Time budget: <span id="minv"></span> min</label>
-  <input type="range" id="min" min="5" max="15" step="1">
+  <label for="min">
+    Time budget:
+    <span id="minv"></span> min
+  </label>
 
-  <label for="spd">Walking speed: <span id="spdv"></span> m/s</label>
-  <input type="range" id="spd" min="0.8" max="1.8" step="0.1">
+  <input
+    type="range"
+    id="min"
+    min="5"
+    max="15"
+    step="1"
+  >
 
+  <label for="spd">
+    Walking speed:
+    <span id="spdv"></span> m/s
+  </label>
+
+  <input
+    type="range"
+    id="spd"
+    min="0.8"
+    max="1.8"
+    step="0.1"
+  >
 
   <div id="legend"></div>
-  <div id="legend-labels"><span>0 min</span><span id="lmax"></span></div>
-  <div id="grey"><i></i> Reachable at 1.4 m/s, but not with your settings</div>
+
+  <div id="legend-labels">
+    <span>0 min</span>
+    <span id="lmax"></span>
+  </div>
+
+  <div id="grey">
+    <i></i>
+    Reachable at 1.4 m/s, but not with your settings
+  </div>
 
   <div id="stats">
-    <div><strong id="walked"></strong> walked in <span id="statmin"></span> min</div>
-    <div><strong id="reach">…</strong> of streets within reach</div>
+    <div>
+      <strong id="walked"></strong>
+      walked in <span id="statmin"></span> min
+    </div>
+
+    <div>
+      <strong id="reach">…</strong>
+      of streets within reach
+    </div>
   </div>
-  <label class="opt"><input type="checkbox" id="elev-layer"> Show ground elevation (m) <span class="n" id="n-elev"></span></label>
+
+  <label class="opt">
+    <input type="checkbox" id="elev-layer">
+    Show ground elevation (m)
+    <span class="n" id="n-elev"></span>
+  </label>
+
   <div id="lstatus" role="status"></div>
 
-  <section class="grp" id="aq" aria-live="polite">
-    <h2>Air quality at the marker</h2>
-    <div id="aq-body">Loading…</div>
-  </section>
-  <button id="copy">Copy link to this view</button>
+  <!-- ================= AQI ================= -->
 
-  <small>Not included: public transport, slope, flooding, crowding, or obstructed footpaths. Street data comes from
-  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> and is incomplete in places, so some areas may look less connected than they are. Ground elevation (Copernicus DEM, 90 m resolution) and air quality (Copernicus Atmosphere Monitoring Service, CAMS) are delivered by <a href="https://open-meteo.com/">Open-Meteo</a>. Elevation is approximate.</small>
+  <section class="grp" id="aq" aria-live="polite">
+
+    <h2>Nearby air quality</h2>
+
+    <div id="aq-body">
+      Loading nearby monitoring station…
+    </div>
+
+  </section>
+
+  <button id="copy">
+    Copy link to this view
+  </button>
+
+  <small>
+    Not included: public transport, slope, flooding, crowding,
+    or obstructed footpaths. Street data comes from
+    <a href="https://www.openstreetmap.org/copyright"
+       target="_blank"
+       rel="noopener">
+      OpenStreetMap
+    </a>
+    and is incomplete in places, so some areas may look less connected
+    than they are.
+
+    Ground elevation uses Copernicus DEM through
+    <a href="https://open-meteo.com/"
+       target="_blank"
+       rel="noopener">
+      Open-Meteo
+    </a>.
+  </small>
+
+  <small>
+    Air-quality information is provided by
+    <a href="https://www.aqi.in/"
+       target="_blank"
+       rel="noopener">
+      AQI.in
+    </a>
+    and represents the nearest available monitoring station,
+    not a sensor reading at the map marker itself.
+  </small>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
 <script>
+
+/* ============================================================
+   PRESETS
+============================================================ */
+
 const PRESETS = {
+
   "Dadar": [19.0178, 72.8478],
+
   "Churchgate": [18.9322, 72.8264],
+
   "CSMT": [18.9398, 72.8355],
+
   "Colaba": [18.9067, 72.8147],
+
   "Bandra": [19.0544, 72.8402],
+
   "Dharavi": [19.0433, 72.8553],
+
   "Kurla": [19.0652, 72.8795],
+
   "Ghatkopar": [19.0860, 72.9090],
+
   "Andheri": [19.1197, 72.8468],
+
   "Powai": [19.1176, 72.9060],
+
   "Borivali": [19.2307, 72.8567]
+
 };
-const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"];
+
+
+/* ============================================================
+   WALKING MAP
+============================================================ */
+
+const COLORS = [
+  "#0b6e4f",
+  "#2a9d8f",
+  "#8ab17d",
+  "#e9c46a",
+  "#f4a261",
+  "#e76f51"
+];
+
 const GREY = "#9aa0a6";
-const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+
+const ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter"
+];
+
 const $ = id => document.getElementById(id);
+
 const fmt = n => n.toLocaleString("en-IN");
 
-// ---- state, restored from the link ----
+
+/* ============================================================
+   STATE
+============================================================ */
+
 const q = new URLSearchParams(location.hash.slice(1));
+
 const st = {
+
   lat: parseFloat(q.get("lat")) || 19.0178,
+
   lng: parseFloat(q.get("lng")) || 72.8478,
-  min: Math.min(15, Math.max(5, parseInt(q.get("min")) || 15)),
+
+  min: Math.min(
+    15,
+    Math.max(
+      5,
+      parseInt(q.get("min")) || 15
+    )
+  ),
+
   spd: parseFloat(q.get("spd")) || 1.4,
+
   z: parseInt(q.get("z")) || 14
+
 };
 
-// ---- map ----
-const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([st.lat, st.lng], st.z);
-L.control.zoom({ position: "bottomright" }).addTo(map);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
-}).addTo(map);
-const marker = L.marker([st.lat, st.lng], { draggable: true }).addTo(map);
-const layers = L.layerGroup().addTo(map);
-const extras = L.layerGroup().addTo(map);
 
-// ---- controls ----
-$("city").innerHTML = '<option value="">Custom point</option>' +
-  Object.keys(PRESETS).map(n => `<option>${n}</option>`).join("");
-$("legend").style.background = "linear-gradient(to right," + COLORS.join(",") + ")";
+/* ============================================================
+   MAP
+============================================================ */
+
+const map =
+  L.map("map", {
+    zoomControl: false,
+    preferCanvas: true
+  })
+  .setView(
+    [st.lat, st.lng],
+    st.z
+  );
+
+
+L.control.zoom({
+  position: "bottomright"
+}).addTo(map);
+
+
+L.tileLayer(
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 19,
+    attribution:
+      "&copy; OpenStreetMap contributors"
+  }
+).addTo(map);
+
+
+const marker =
+  L.marker(
+    [st.lat, st.lng],
+    {
+      draggable: true
+    }
+  ).addTo(map);
+
+
+const layers =
+  L.layerGroup().addTo(map);
+
+
+const extras =
+  L.layerGroup().addTo(map);
+
+
+/* ============================================================
+   AQI STATION LAYER
+============================================================ */
+
+const aqStationLayer =
+  L.layerGroup().addTo(map);
+
+let aqStationMarker = null;
+
+
+/* ============================================================
+   CONTROLS
+============================================================ */
+
+$("city").innerHTML =
+  '<option value="">Custom point</option>' +
+
+  Object.keys(PRESETS)
+    .map(
+      n => `<option>${n}</option>`
+    )
+    .join("");
+
+
+$("legend").style.background =
+  "linear-gradient(to right," +
+  COLORS.join(",") +
+  ")";
+
 
 function sync() {
-  $("min").value = st.min; $("minv").textContent = st.min;
-  $("spd").value = st.spd; $("spdv").textContent = st.spd.toFixed(1);
-  $("lmax").textContent = st.min + " min";
-  $("statmin").textContent = st.min;
-  $("walked").textContent = fmt(Math.round(st.spd * st.min * 60)) + " m";
+
+  $("min").value = st.min;
+
+  $("minv").textContent = st.min;
+
+  $("spd").value = st.spd;
+
+  $("spdv").textContent =
+    st.spd.toFixed(1);
+
+  $("lmax").textContent =
+    st.min + " min";
+
+  $("statmin").textContent =
+    st.min;
+
+  $("walked").textContent =
+    fmt(
+      Math.round(
+        st.spd *
+        st.min *
+        60
+      )
+    ) + " m";
+
 }
+
+
 function writeHash() {
-  const p = new URLSearchParams({
-    lat: st.lat.toFixed(5), lng: st.lng.toFixed(5), min: st.min,
-    spd: st.spd, elev: $("elev-layer").checked ? 1 : 0, z: map.getZoom()
-  });
-  history.replaceState(null, "", "#" + p.toString());
-}
-function setStatus(t) { $("status").textContent = t; }
-function update() { sync(); writeHash(); load(); }
 
-function setPoint(lat, lng, keepPreset) {
-  st.lat = lat; st.lng = lng;
-  marker.setLatLng([lat, lng]);
-  if (!keepPreset) $("city").value = "";
+  const p =
+    new URLSearchParams({
+
+      lat: st.lat.toFixed(5),
+
+      lng: st.lng.toFixed(5),
+
+      min: st.min,
+
+      spd: st.spd,
+
+      elev:
+        $("elev-layer").checked
+          ? 1
+          : 0,
+
+      z: map.getZoom()
+
+    });
+
+  history.replaceState(
+    null,
+    "",
+    "#" + p.toString()
+  );
+
+}
+
+
+function setStatus(t) {
+
+  $("status").textContent = t;
+
+}
+
+
+function update() {
+
+  sync();
+
+  writeHash();
+
+  load();
+
+}
+
+
+function setPoint(
+  lat,
+  lng,
+  keepPreset
+) {
+
+  st.lat = lat;
+
+  st.lng = lng;
+
+  marker.setLatLng([
+    lat,
+    lng
+  ]);
+
+  if (!keepPreset) {
+
+    $("city").value = "";
+
+  }
+
   update();
+
   loadAQ();
-}
-map.on("click", e => setPoint(e.latlng.lat, e.latlng.lng));
-marker.on("dragend", () => { const p = marker.getLatLng(); setPoint(p.lat, p.lng); });
-map.on("zoomend", writeHash);
-$("city").addEventListener("change", e => {
-  const c = PRESETS[e.target.value]; if (!c) return;
-  map.setView(c, 14); setPoint(c[0], c[1], true);
-});
-$("min").addEventListener("input", e => { st.min = +e.target.value; sync(); });
-$("min").addEventListener("change", e => { st.min = +e.target.value; update(); });
-$("spd").addEventListener("input", e => { st.spd = +e.target.value; update(); });
-$("copy").addEventListener("click", () => {
-  const done = () => { $("copy").textContent = "Link copied"; setTimeout(() => $("copy").textContent = "Copy link to this view", 1800); };
-  if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, () => prompt("Copy this link:", location.href));
-  else prompt("Copy this link:", location.href);
-});
 
-// ---- street data (OpenStreetMap via Overpass) ----
-function hav(a, b, c, d) {
-  const t = Math.PI / 180, dl = (c - a) * t, dn = (d - b) * t;
-  const x = Math.sin(dl / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin(dn / 2) ** 2;
-  return 12742000 * Math.asin(Math.sqrt(x));
 }
-async function fetchNet(lat, lng, r) {
-  const query = `[out:json][timeout:30];way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});out body;>;out skel qt;`;
+
+
+map.on(
+  "click",
+  e =>
+    setPoint(
+      e.latlng.lat,
+      e.latlng.lng
+    )
+);
+
+
+marker.on(
+  "dragend",
+  () => {
+
+    const p =
+      marker.getLatLng();
+
+    setPoint(
+      p.lat,
+      p.lng
+    );
+
+  }
+);
+
+
+map.on(
+  "zoomend",
+  writeHash
+);
+
+
+$("city").addEventListener(
+  "change",
+  e => {
+
+    const c =
+      PRESETS[e.target.value];
+
+    if (!c) return;
+
+    map.setView(
+      c,
+      14
+    );
+
+    setPoint(
+      c[0],
+      c[1],
+      true
+    );
+
+  }
+);
+
+
+$("min").addEventListener(
+  "input",
+  e => {
+
+    st.min =
+      +e.target.value;
+
+    sync();
+
+  }
+);
+
+
+$("min").addEventListener(
+  "change",
+  e => {
+
+    st.min =
+      +e.target.value;
+
+    update();
+
+  }
+);
+
+
+$("spd").addEventListener(
+  "input",
+  e => {
+
+    st.spd =
+      +e.target.value;
+
+    update();
+
+  }
+);
+
+
+$("copy").addEventListener(
+  "click",
+  () => {
+
+    const done = () => {
+
+      $("copy").textContent =
+        "Link copied";
+
+      setTimeout(
+        () =>
+          $("copy").textContent =
+            "Copy link to this view",
+        1800
+      );
+
+    };
+
+    if (navigator.clipboard) {
+
+      navigator.clipboard
+        .writeText(location.href)
+        .then(
+          done,
+          () =>
+            prompt(
+              "Copy this link:",
+              location.href
+            )
+        );
+
+    } else {
+
+      prompt(
+        "Copy this link:",
+        location.href
+      );
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   STREET DATA
+============================================================ */
+
+function hav(
+  a,
+  b,
+  c,
+  d
+) {
+
+  const t =
+    Math.PI / 180;
+
+  const dl =
+    (c - a) * t;
+
+  const dn =
+    (d - b) * t;
+
+  const x =
+    Math.sin(dl / 2) ** 2 +
+
+    Math.cos(a * t) *
+    Math.cos(c * t) *
+    Math.sin(dn / 2) ** 2;
+
+  return (
+    12742000 *
+    Math.asin(
+      Math.sqrt(x)
+    )
+  );
+
+}
+
+
+async function fetchNet(
+  lat,
+  lng,
+  r
+) {
+
+  const query =
+    `[out:json][timeout:30];` +
+
+    `way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]` +
+
+    `["foot"!="no"]` +
+
+    `["access"!="private"]` +
+
+    `(around:${r},${lat},${lng});` +
+
+    `out body;>;out skel qt;`;
+
   return overpass(query);
+
 }
+
+
 async function overpass(query) {
+
   let err;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    for (const url of ENDPOINTS) {
-      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+
+  for (
+    let attempt = 0;
+    attempt < 2;
+    attempt++
+  ) {
+
+    for (
+      const url of ENDPOINTS
+    ) {
+
+      const ctl =
+        new AbortController();
+
+      const timer =
+        setTimeout(
+          () =>
+            ctl.abort(),
+          25000
+        );
+
       try {
-        const res = await fetch(url, {
-          method: "POST", body: "data=" + encodeURIComponent(query),
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          signal: ctl.signal
-        });
-        if (!res.ok) throw new Error("server replied " + res.status);
+
+        const res =
+          await fetch(
+            url,
+            {
+              method: "POST",
+
+              body:
+                "data=" +
+                encodeURIComponent(
+                  query
+                ),
+
+              headers: {
+                "Content-Type":
+                  "application/x-www-form-urlencoded"
+              },
+
+              signal: ctl.signal
+            }
+          );
+
+        if (!res.ok) {
+
+          throw new Error(
+            "server replied " +
+            res.status
+          );
+
+        }
+
         return await res.json();
-      } catch (e) { err = e; }
-      finally { clearTimeout(timer); }
+
+      } catch (e) {
+
+        err = e;
+
+      } finally {
+
+        clearTimeout(timer);
+
+      }
+
     }
-    await new Promise(done => setTimeout(done, 3000));
+
+    await new Promise(
+      done =>
+        setTimeout(
+          done,
+          3000
+        )
+    );
+
   }
+
   throw err;
+
 }
+
+
 function build(j) {
-  const nodes = new Map(), adj = new Map(), segs = [];
-  for (const e of j.elements) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
-  for (const e of j.elements) {
-    if (e.type !== "way") continue;
-    for (let i = 0; i < e.nodes.length - 1; i++) {
-      const a = e.nodes[i], b = e.nodes[i + 1], pa = nodes.get(a), pb = nodes.get(b);
-      if (!pa || !pb) continue;
-      const len = hav(pa[0], pa[1], pb[0], pb[1]);
-      if (!adj.has(a)) adj.set(a, []);
-      if (!adj.has(b)) adj.set(b, []);
-      adj.get(a).push([b, len]);
-      adj.get(b).push([a, len]);
-      segs.push([a, b, len]);
+
+  const nodes =
+    new Map();
+
+  const adj =
+    new Map();
+
+  const segs = [];
+
+
+  for (
+    const e of j.elements
+  ) {
+
+    if (
+      e.type === "node"
+    ) {
+
+      nodes.set(
+        e.id,
+        [e.lat, e.lon]
+      );
+
     }
+
   }
-  return { nodes, adj, segs };
+
+
+  for (
+    const e of j.elements
+  ) {
+
+    if (
+      e.type !== "way"
+    ) continue;
+
+
+    for (
+      let i = 0;
+      i < e.nodes.length - 1;
+      i++
+    ) {
+
+      const a =
+        e.nodes[i];
+
+      const b =
+        e.nodes[i + 1];
+
+      const pa =
+        nodes.get(a);
+
+      const pb =
+        nodes.get(b);
+
+      if (!pa || !pb)
+        continue;
+
+
+      const len =
+        hav(
+          pa[0],
+          pa[1],
+          pb[0],
+          pb[1]
+        );
+
+
+      if (!adj.has(a))
+        adj.set(a, []);
+
+      if (!adj.has(b))
+        adj.set(b, []);
+
+
+      adj.get(a).push([
+        b,
+        len
+      ]);
+
+      adj.get(b).push([
+        a,
+        len
+      ]);
+
+
+      segs.push([
+        a,
+        b,
+        len
+      ]);
+
+    }
+
+  }
+
+
+  return {
+    nodes,
+    adj,
+    segs
+  };
+
 }
 
-// ---- shortest walking times (Dijkstra with a small binary heap) ----
-function dijkstra(g, src, spd, limit) {
-  const dist = new Map([[src, 0]]), h = [[0, src]];
-  const push = x => {
-    h.push(x); let i = h.length - 1;
-    while (i > 0) { const p = (i - 1) >> 1; if (h[p][0] <= h[i][0]) break; [h[p], h[i]] = [h[i], h[p]]; i = p; }
-  };
-  const pop = () => {
-    const top = h[0], last = h.pop();
-    if (h.length) {
-      h[0] = last; let i = 0;
-      for (;;) {
-        const l = 2 * i + 1, r = l + 1; let m = i;
-        if (l < h.length && h[l][0] < h[m][0]) m = l;
-        if (r < h.length && h[r][0] < h[m][0]) m = r;
-        if (m === i) break;
-        [h[m], h[i]] = [h[i], h[m]]; i = m;
+
+/* ============================================================
+   DIJKSTRA
+============================================================ */
+
+function dijkstra(
+  g,
+  src,
+  spd,
+  limit
+) {
+
+  const dist =
+    new Map([
+      [src, 0]
+    ]);
+
+  const h =
+    [[0, src]];
+
+
+  const push =
+    x => {
+
+      h.push(x);
+
+      let i =
+        h.length - 1;
+
+      while (i > 0) {
+
+        const p =
+          (i - 1) >> 1;
+
+        if (
+          h[p][0] <=
+          h[i][0]
+        ) break;
+
+        [
+          h[p],
+          h[i]
+        ] =
+          [
+            h[i],
+            h[p]
+          ];
+
+        i = p;
+
       }
-    }
-    return top;
-  };
+
+    };
+
+
+  const pop =
+    () => {
+
+      const top =
+        h[0];
+
+      const last =
+        h.pop();
+
+      if (h.length) {
+
+        h[0] =
+          last;
+
+        let i = 0;
+
+        for (;;) {
+
+          const l =
+            2 * i + 1;
+
+          const r =
+            l + 1;
+
+          let m = i;
+
+
+          if (
+            l < h.length &&
+            h[l][0] <
+            h[m][0]
+          )
+            m = l;
+
+
+          if (
+            r < h.length &&
+            h[r][0] <
+            h[m][0]
+          )
+            m = r;
+
+
+          if (m === i)
+            break;
+
+
+          [
+            h[m],
+            h[i]
+          ] =
+            [
+              h[i],
+              h[m]
+            ];
+
+          i = m;
+
+        }
+
+      }
+
+      return top;
+
+    };
+
+
   while (h.length) {
-    const [d, u] = pop();
-    if (d > dist.get(u)) continue;
-    for (const [v, len] of g.adj.get(u) || []) {
-      const nd = d + len / spd;
-      if (nd <= limit && nd < (dist.has(v) ? dist.get(v) : Infinity)) { dist.set(v, nd); push([nd, v]); }
+
+    const [
+      d,
+      u
+    ] =
+      pop();
+
+
+    if (
+      d >
+      dist.get(u)
+    )
+      continue;
+
+
+    for (
+      const [
+        v,
+        len
+      ] of (
+        g.adj.get(u) ||
+        []
+      )
+    ) {
+
+      const nd =
+        d +
+        len / spd;
+
+
+      if (
+        nd <= limit &&
+        nd <
+          (
+            dist.has(v)
+              ? dist.get(v)
+              : Infinity
+          )
+      ) {
+
+        dist.set(
+          v,
+          nd
+        );
+
+        push([
+          nd,
+          v
+        ]);
+
+      }
+
     }
+
   }
+
+
   return dist;
+
 }
-// Start from the nearest street that belongs to the main connected network,
-// so a point near a station or a stray footpath doesn't start on an isolated fragment.
-function startNode(g, lat, lng) {
-  const comp = new Map(), sizes = [];
-  for (const s0 of g.adj.keys()) {
-    if (comp.has(s0)) continue;
-    const id = sizes.length, stack = [s0]; let n = 0;
-    comp.set(s0, id);
-    while (stack.length) {
-      const u = stack.pop(); n++;
-      for (const [v] of g.adj.get(u)) {
-        if (!comp.has(v)) { comp.set(v, id); stack.push(v); }
+
+
+/* ============================================================
+   START NODE
+============================================================ */
+
+function startNode(
+  g,
+  lat,
+  lng
+) {
+
+  const comp =
+    new Map();
+
+  const sizes = [];
+
+
+  for (
+    const s0 of
+    g.adj.keys()
+  ) {
+
+    if (
+      comp.has(s0)
+    )
+      continue;
+
+
+    const id =
+      sizes.length;
+
+    const stack =
+      [s0];
+
+    let n = 0;
+
+    comp.set(
+      s0,
+      id
+    );
+
+
+    while (
+      stack.length
+    ) {
+
+      const u =
+        stack.pop();
+
+      n++;
+
+
+      for (
+        const [
+          v
+        ] of g.adj.get(u)
+      ) {
+
+        if (
+          !comp.has(v)
+        ) {
+
+          comp.set(
+            v,
+            id
+          );
+
+          stack.push(v);
+
+        }
+
       }
+
     }
+
+
     sizes.push(n);
+
   }
-  const minSize = sizes.reduce((a, b) => Math.max(a, b), 0) * 0.1;
-  const k = Math.cos(lat * Math.PI / 180); let best = null, bd = Infinity;
-  for (const [id, c] of comp) {
-    if (sizes[c] < minSize) continue;
-    const p = g.nodes.get(id), d = (p[0] - lat) ** 2 + ((p[1] - lng) * k) ** 2;
-    if (d < bd) { bd = d; best = id; }
+
+
+  const minSize =
+    sizes.reduce(
+      (a, b) =>
+        Math.max(a, b),
+      0
+    ) * 0.1;
+
+
+  const k =
+    Math.cos(
+      lat *
+      Math.PI / 180
+    );
+
+
+  let best = null;
+
+  let bd =
+    Infinity;
+
+
+  for (
+    const [
+      id,
+      c
+    ] of comp
+  ) {
+
+    if (
+      sizes[c] <
+      minSize
+    )
+      continue;
+
+
+    const p =
+      g.nodes.get(id);
+
+
+    const d =
+      (p[0] - lat) ** 2 +
+
+      (
+        (p[1] - lng) *
+        k
+      ) ** 2;
+
+
+    if (d < bd) {
+
+      bd = d;
+
+      best = id;
+
+    }
+
   }
+
+
   return best;
+
 }
 
-// ---- draw ----
-let data = null, reqId = 0, run = null;
+
+/* ============================================================
+   DRAW WALKING MAP
+============================================================ */
+
+let data = null;
+
+let reqId = 0;
+
+let run = null;
+
+
 function render() {
-  const g = data.g, T = st.min * 60;
+
+  const g =
+    data.g;
+
+  const T =
+    st.min * 60;
+
+
   layers.clearLayers();
-  const src = startNode(g, st.lat, st.lng);
-  if (src == null) { run = null; extras.clearLayers(); $("reach").textContent = "0 m"; setStatus("No walkable streets found here. Try another spot."); return; }
-  const me = dijkstra(g, src, st.spd, T);
-  const base = dijkstra(g, src, 1.4, T);
-  const grey = [], bins = COLORS.map(() => []);
+
+
+  const src =
+    startNode(
+      g,
+      st.lat,
+      st.lng
+    );
+
+
+  if (
+    src == null
+  ) {
+
+    run = null;
+
+    extras.clearLayers();
+
+    $("reach").textContent =
+      "0 m";
+
+    setStatus(
+      "No walkable streets found here. Try another spot."
+    );
+
+    return;
+
+  }
+
+
+  const me =
+    dijkstra(
+      g,
+      src,
+      st.spd,
+      T
+    );
+
+
+  const base =
+    dijkstra(
+      g,
+      src,
+      1.4,
+      T
+    );
+
+
+  const grey = [];
+
+  const bins =
+    COLORS.map(
+      () => []
+    );
+
+
   let reachM = 0;
-  for (const [a, b, len] of g.segs) {
-    const line = [g.nodes.get(a), g.nodes.get(b)];
-    const t = Math.min(me.has(a) ? me.get(a) : Infinity, me.has(b) ? me.get(b) : Infinity);
-    if (t <= T) { bins[Math.min(COLORS.length - 1, Math.floor(t / T * COLORS.length))].push(line); reachM += len; }
-    else if (base.has(a) || base.has(b)) grey.push(line);
+
+
+  for (
+    const [
+      a,
+      b,
+      len
+    ] of g.segs
+  ) {
+
+    const line = [
+      g.nodes.get(a),
+      g.nodes.get(b)
+    ];
+
+
+    const t =
+      Math.min(
+        me.has(a)
+          ? me.get(a)
+          : Infinity,
+
+        me.has(b)
+          ? me.get(b)
+          : Infinity
+      );
+
+
+    if (
+      t <= T
+    ) {
+
+      bins[
+        Math.min(
+          COLORS.length - 1,
+
+          Math.floor(
+            t /
+            T *
+            COLORS.length
+          )
+        )
+      ].push(line);
+
+      reachM += len;
+
+    } else if (
+      base.has(a) ||
+      base.has(b)
+    ) {
+
+      grey.push(line);
+
+    }
+
   }
-  L.polyline(grey, { color: GREY, weight: 3, opacity: 0.85, interactive: false }).addTo(layers);
-  bins.forEach((lines, i) => L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95, interactive: false }).addTo(layers));
-  $("reach").textContent = fmt(Math.round(reachM)) + " m";
-  const sp = g.nodes.get(src), off = Math.round(hav(st.lat, st.lng, sp[0], sp[1]));
-  run = { me };
+
+
+  L.polyline(
+    grey,
+    {
+      color: GREY,
+      weight: 3,
+      opacity: 0.85,
+      interactive: false
+    }
+  ).addTo(layers);
+
+
+  bins.forEach(
+    (lines, i) =>
+
+      L.polyline(
+        lines,
+        {
+          color: COLORS[i],
+          weight: 4,
+          opacity: 0.95,
+          interactive: false
+        }
+      ).addTo(layers)
+  );
+
+
+  $("reach").textContent =
+    fmt(
+      Math.round(
+        reachM
+      )
+    ) + " m";
+
+
+  const sp =
+    g.nodes.get(src);
+
+
+  const off =
+    Math.round(
+      hav(
+        st.lat,
+        st.lng,
+        sp[0],
+        sp[1]
+      )
+    );
+
+
+  run = {
+    me
+  };
+
+
   scheduleElev();
-  setStatus(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
+
+
+  setStatus(
+    off > 75
+      ? `Started from the nearest connected street, ${off} m from your point.`
+      : ""
+  );
+
 }
+
+
 async function load() {
-  const id = ++reqId, r = 1.8 * 15 * 60 + 100;
-  if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
-  layers.clearLayers();
-  extras.clearLayers();
-  run = null;
-  setL("");
-  $("reach").textContent = "…";
-  setStatus("Loading street network…");
-  try {
-    const j = await fetchNet(st.lat, st.lng, r);
-    if (id !== reqId) return;
-    data = { lat: st.lat, lng: st.lng, r, g: build(j), elev: new Map() };
+
+  const id =
+    ++reqId;
+
+  const r =
+    1.8 *
+    15 *
+    60 +
+    100;
+
+
+  if (
+    data &&
+    data.lat === st.lat &&
+    data.lng === st.lng &&
+    data.r >= r
+  ) {
+
     render();
-  } catch (e) {
-    if (id === reqId) setStatus("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Wait a moment, then pick the place again.");
-  }
-}
 
-// ---- ground elevation (Open-Meteo, Copernicus 90 m terrain model) ----
-const setL = t => { $("lstatus").textContent = t; };
-const setN = (id, t) => { const el = $("n-" + id); if (el) el.textContent = t; };
-let elevId = 0, elevTimer = null;
+    return;
 
-async function fetchElev(pts) {
-  const out = [];
-  for (let i = 0; i < pts.length; i += 100) {
-    const b = pts.slice(i, i + 100);
-    const url = "https://api.open-meteo.com/v1/elevation?latitude=" + b.map(p => p[0].toFixed(5)).join(",") +
-      "&longitude=" + b.map(p => p[1].toFixed(5)).join(",");
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("elevation service replied " + res.status);
-    out.push(...(await res.json()).elevation);
   }
-  return out;
-}
-// one sample point per ~250 m cell of the reachable streets
-function elevPoints() {
-  const g = data.g, dLat = 250 / 111320, dLng = dLat / Math.cos(st.lat * Math.PI / 180), seen = new Set(), out = [];
-  for (const id of run.me.keys()) {
-    const p = g.nodes.get(id), key = Math.floor(p[0] / dLat) + "," + Math.floor(p[1] / dLng);
-    if (seen.has(key)) continue;
-    seen.add(key); out.push({ id, ll: p });
-    if (out.length >= 300) break;
-  }
-  return out;
-}
-function scheduleElev() {
-  clearTimeout(elevTimer);
-  elevTimer = setTimeout(() => showElev().catch(e => setL("Could not draw elevation: " + e.message)), 350);
-}
-async function showElev() {
-  const id = ++elevId, d = data;
+
+
+  layers.clearLayers();
+
   extras.clearLayers();
-  setN("elev", "");
-  if (!d || !run || !$("elev-layer").checked) { setL(""); return; }
-  const pts = elevPoints(), need = pts.filter(p => !d.elev.has(p.id));
-  if (need.length) {
-    setL("Loading elevation…");
-    try {
-      const h = await fetchElev(need.map(p => p.ll));
-      need.forEach((p, i) => d.elev.set(p.id, h[i]));
-      if (id === elevId) setL("");
-    } catch (e) {
-      if (id === elevId) setL("Could not load elevation (" + (e.name === "AbortError" ? "timed out" : e.message) + "). Toggle it to try again.");
+
+  run = null;
+
+  setL("");
+
+  $("reach").textContent =
+    "…";
+
+  setStatus(
+    "Loading street network…"
+  );
+
+
+  try {
+
+    const j =
+      await fetchNet(
+        st.lat,
+        st.lng,
+        r
+      );
+
+
+    if (
+      id !== reqId
+    )
       return;
+
+
+    data = {
+
+      lat: st.lat,
+
+      lng: st.lng,
+
+      r,
+
+      g: build(j),
+
+      elev: new Map()
+
+    };
+
+
+    render();
+
+  } catch (e) {
+
+    if (
+      id === reqId
+    ) {
+
+      setStatus(
+        "Could not load street data (" +
+        (
+          e.name ===
+          "AbortError"
+            ? "timed out"
+            : e.message
+        ) +
+        "). Wait a moment, then pick the place again."
+      );
+
     }
-  } else setL("");
-  if (id !== elevId || d !== data) return;
-  let lo = Infinity, hi = -Infinity;
-  for (const p of pts) {
-    const h = d.elev.get(p.id);
-    if (h == null || isNaN(h)) continue;
-    lo = Math.min(lo, h); hi = Math.max(hi, h);
-    L.marker(p.ll, { interactive: false, keyboard: false,
-      icon: L.divIcon({ className: "", iconSize: [0, 0], html: '<span class="elev">' + Math.round(h) + "</span>" }) }).addTo(extras);
+
   }
-  if (lo <= hi) setN("elev", Math.round(lo) + " to " + Math.round(hi) + " m");
-}
-$("elev-layer").addEventListener("change", () => { writeHash(); showElev().catch(e => setL("Could not draw elevation: " + e.message)); });
 
-// ---- air quality at the marker (Open-Meteo, CAMS model, current hour) ----
-const AQ_BANDS = [
-  [50, "Good", "#2b8a3e", "#fff"],
-  [100, "Moderate", "#f2c94c", "#212529"],
-  [150, "Unhealthy for sensitive groups", "#f08c00", "#212529"],
-  [200, "Unhealthy", "#c92a2a", "#fff"],
-  [300, "Very unhealthy", "#862e9c", "#fff"],
-  [Infinity, "Hazardous", "#5f1a2c", "#fff"]
-];
-const AQ_ITEMS = [["pm2_5", "PM2.5"], ["pm10", "PM10"], ["nitrogen_dioxide", "NO₂"], ["sulphur_dioxide", "SO₂"], ["ozone", "O₃"], ["carbon_monoxide", "CO"]];
-const aqCache = new Map();
-let aqId = 0, aqTimer = null;
-const esc = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-
-function aqRender(cur, units) {
-  const aqi = Math.round(cur.us_aqi);
-  if (isNaN(aqi)) { $("aq-body").textContent = "No air quality value is available for this spot right now."; return; }
-  const band = AQ_BANDS.find(b => aqi <= b[0]);
-  const items = AQ_ITEMS.filter(([k]) => cur[k] != null)
-    .map(([k, label]) => `<div>${label} <strong>${Math.round(cur[k] * 10) / 10}</strong> ${esc(units[k] || "")}</div>`).join("");
-  $("aq-body").innerHTML =
-    `<div class="aq-main"><div class="aq-num" style="background:${band[2]};color:${band[3]}">${aqi}</div>
-       <div><div class="aq-cat">${band[1]}</div>
-       <div class="hint">US AQI, ${esc(String(cur.time).replace("T", " "))} local time</div></div></div>
-     <div class="aq-grid">${items}</div>
-     <div class="hint">A modelled estimate for the wider area (grid of about 45 km), updated hourly. It is not a reading from a street-level or local sensor.</div>`;
 }
-function loadAQ() {
-  clearTimeout(aqTimer);
-  $("aq-body").textContent = "Loading…";
-  const id = ++aqId, lat = st.lat, lng = st.lng, key = lat.toFixed(2) + "," + lng.toFixed(2);
-  aqTimer = setTimeout(async () => {
+
+
+/* ============================================================
+   ELEVATION
+============================================================ */
+
+const setL =
+  t =>
+    $("lstatus").textContent =
+      t;
+
+
+const setN =
+  (id, t) => {
+
+    const el =
+      $("n-" + id);
+
+    if (el)
+      el.textContent = t;
+
+  };
+
+
+let elevId = 0;
+
+let elevTimer = null;
+
+
+async function fetchElev(
+  pts
+) {
+
+  const out = [];
+
+
+  for (
+    let i = 0;
+    i < pts.length;
+    i += 100
+  ) {
+
+    const b =
+      pts.slice(
+        i,
+        i + 100
+      );
+
+
+    const url =
+      "https://api.open-meteo.com/v1/elevation?" +
+
+      "latitude=" +
+      b
+        .map(
+          p =>
+            p[0].toFixed(5)
+        )
+        .join(",") +
+
+      "&longitude=" +
+      b
+        .map(
+          p =>
+            p[1].toFixed(5)
+        )
+        .join(",");
+
+
+    const res =
+      await fetch(url);
+
+
+    if (!res.ok)
+      throw new Error(
+        "elevation service replied " +
+        res.status
+      );
+
+
+    out.push(
+      ...(
+        await res.json()
+      ).elevation
+    );
+
+  }
+
+
+  return out;
+
+}
+
+
+function elevPoints() {
+
+  const g =
+    data.g;
+
+  const dLat =
+    250 / 111320;
+
+  const dLng =
+    dLat /
+    Math.cos(
+      st.lat *
+      Math.PI / 180
+    );
+
+  const seen =
+    new Set();
+
+  const out = [];
+
+
+  for (
+    const id of
+    run.me.keys()
+  ) {
+
+    const p =
+      g.nodes.get(id);
+
+
+    const key =
+      Math.floor(
+        p[0] / dLat
+      ) +
+      "," +
+      Math.floor(
+        p[1] / dLng
+      );
+
+
+    if (
+      seen.has(key)
+    )
+      continue;
+
+
+    seen.add(key);
+
+
+    out.push({
+      id,
+      ll: p
+    });
+
+
+    if (
+      out.length >= 300
+    )
+      break;
+
+  }
+
+
+  return out;
+
+}
+
+
+function scheduleElev() {
+
+  clearTimeout(
+    elevTimer
+  );
+
+
+  elevTimer =
+    setTimeout(
+      () =>
+        showElev()
+          .catch(
+            e =>
+              setL(
+                "Could not draw elevation: " +
+                e.message
+              )
+          ),
+      350
+    );
+
+}
+
+
+async function showElev() {
+
+  const id =
+    ++elevId;
+
+  const d =
+    data;
+
+
+  extras.clearLayers();
+
+  setN(
+    "elev",
+    ""
+  );
+
+
+  if (
+    !d ||
+    !run ||
+    !$("elev-layer").checked
+  ) {
+
+    setL("");
+
+    return;
+
+  }
+
+
+  const pts =
+    elevPoints();
+
+
+  const need =
+    pts.filter(
+      p =>
+        !d.elev.has(
+          p.id
+        )
+    );
+
+
+  if (need.length) {
+
+    setL(
+      "Loading elevation…"
+    );
+
+
     try {
-      let d = aqCache.get(key);
-      if (!d || Date.now() - d.t > 15 * 60 * 1000) {
-        const url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + lat.toFixed(4) + "&longitude=" + lng.toFixed(4) +
-          "&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,ozone,carbon_monoxide&timezone=auto";
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("service replied " + res.status);
-        const j = await res.json();
-        if (!j.current) throw new Error("no data returned");
-        d = { t: Date.now(), cur: j.current, units: j.current_units || {} };
-        aqCache.set(key, d);
-      }
-      if (id === aqId) aqRender(d.cur, d.units);
+
+      const h =
+        await fetchElev(
+          need.map(
+            p =>
+              p.ll
+          )
+        );
+
+
+      need.forEach(
+        (p, i) =>
+          d.elev.set(
+            p.id,
+            h[i]
+          )
+      );
+
+
+      if (
+        id === elevId
+      )
+        setL("");
+
     } catch (e) {
-      if (id === aqId) $("aq-body").textContent = "Could not load air quality (" + e.message + "). Pick the place again to retry.";
+
+      if (
+        id === elevId
+      ) {
+
+        setL(
+          "Could not load elevation (" +
+          (
+            e.name ===
+            "AbortError"
+              ? "timed out"
+              : e.message
+          ) +
+          "). Toggle it to try again."
+        );
+
+      }
+
+      return;
+
     }
-  }, 400);
+
+  } else {
+
+    setL("");
+
+  }
+
+
+  if (
+    id !== elevId ||
+    d !== data
+  )
+    return;
+
+
+  let lo =
+    Infinity;
+
+  let hi =
+    -Infinity;
+
+
+  for (
+    const p of pts
+  ) {
+
+    const h =
+      d.elev.get(
+        p.id
+      );
+
+
+    if (
+      h == null ||
+      isNaN(h)
+    )
+      continue;
+
+
+    lo =
+      Math.min(
+        lo,
+        h
+      );
+
+
+    hi =
+      Math.max(
+        hi,
+        h
+      );
+
+
+    L.marker(
+      p.ll,
+      {
+        interactive: false,
+        keyboard: false,
+
+        icon:
+          L.divIcon({
+            className: "",
+            iconSize: [
+              0,
+              0
+            ],
+
+            html:
+              '<span class="elev">' +
+              Math.round(h) +
+              "</span>"
+          })
+
+      }
+    ).addTo(extras);
+
+  }
+
+
+  if (
+    lo <= hi
+  ) {
+
+    setN(
+      "elev",
+
+      Math.round(lo) +
+      " to " +
+      Math.round(hi) +
+      " m"
+    );
+
+  }
+
 }
 
-$("elev-layer").checked = q.get("elev") === "1";
+
+$("elev-layer").addEventListener(
+  "change",
+  () => {
+
+    writeHash();
+
+    showElev()
+      .catch(
+        e =>
+          setL(
+            "Could not draw elevation: " +
+            e.message
+          )
+      );
+
+  }
+);
+
+
+/* ============================================================
+   LIVE AIR QUALITY
+============================================================ */
+
+/*
+ * AQI.in API
+ *
+ * The API provides monitoring locations and current
+ * air-quality information.
+ *
+ * We deliberately use the monitoring station nearest
+ * to the user's selected map point.
+ */
+
+const AQI_API =
+  "https://api.aqi.in";
+
+
+const AQ_REFRESH =
+  5 * 60 * 1000;
+
+
+let aqId = 0;
+
+let aqRefreshTimer = null;
+
+let aqStation = null;
+
+
+/* ------------------------------------------------------------
+   AQI colour/category
+------------------------------------------------------------ */
+
+function aqCategory(
+  aqi
+) {
+
+  if (
+    aqi == null ||
+    isNaN(aqi)
+  ) {
+
+    return [
+      "Unavailable",
+      "#e9ecef",
+      "#212529"
+    ];
+
+  }
+
+
+  /*
+   * AQI.in reports its own AQI scale.
+   * These categories are used only for visual display.
+   */
+
+  if (
+    aqi <= 50
+  ) {
+
+    return [
+      "Good",
+      "#2b8a3e",
+      "#fff"
+    ];
+
+  }
+
+
+  if (
+    aqi <= 100
+  ) {
+
+    return [
+      "Satisfactory",
+      "#8ab17d",
+      "#212529"
+    ];
+
+  }
+
+
+  if (
+    aqi <= 200
+  ) {
+
+    return [
+      "Moderate",
+      "#e9c46a",
+      "#212529"
+    ];
+
+  }
+
+
+  if (
+    aqi <= 300
+  ) {
+
+    return [
+      "Poor",
+      "#f4a261",
+      "#212529"
+    ];
+
+  }
+
+
+  if (
+    aqi <= 400
+  ) {
+
+    return [
+      "Very Poor",
+      "#e76f51",
+      "#fff"
+    ];
+
+  }
+
+
+  return [
+    "Severe",
+    "#c92a2a",
+    "#fff"
+  ];
+
+}
+
+
+/* ------------------------------------------------------------
+   Distance
+------------------------------------------------------------ */
+
+function distanceKm(
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) {
+
+  return (
+    hav(
+      lat1,
+      lon1,
+      lat2,
+      lon2
+    ) / 1000
+  );
+
+}
+
+
+/* ------------------------------------------------------------
+   Extract value safely
+------------------------------------------------------------ */
+
+function firstValue(
+  obj,
+  keys
+) {
+
+  for (
+    const key of keys
+  ) {
+
+    if (
+      obj &&
+      obj[key] != null &&
+      obj[key] !== ""
+    ) {
+
+      const n =
+        Number(
+          obj[key]
+        );
+
+      if (
+        !isNaN(n)
+      )
+        return n;
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+/* ------------------------------------------------------------
+   Station coordinate extraction
+------------------------------------------------------------ */
+
+function stationLat(
+  s
+) {
+
+  return firstValue(
+    s,
+    [
+      "latitude",
+      "lat",
+      "Latitude",
+      "LAT"
+    ]
+  );
+
+}
+
+
+function stationLng(
+  s
+) {
+
+  return firstValue(
+    s,
+    [
+      "longitude",
+      "lng",
+      "lon",
+      "long",
+      "Longitude",
+      "LON"
+    ]
+  );
+
+}
+
+
+/* ------------------------------------------------------------
+   Station name
+------------------------------------------------------------ */
+
+function stationName(
+  s
+) {
+
+  return (
+    s.station ||
+    s.stationName ||
+    s.location ||
+    s.locationName ||
+    s.name ||
+    "Monitoring station"
+  );
+
+}
+
+
+/* ------------------------------------------------------------
+   AQI extraction
+------------------------------------------------------------ */
+
+function stationAQI(
+  s
+) {
+
+  return firstValue(
+    s,
+    [
+      "aqi",
+      "AQI",
+      "iaqi",
+      "IAQI",
+      "aqiValue"
+    ]
+  );
+
+}
+
+
+/* ------------------------------------------------------------
+   Pollutant extraction
+------------------------------------------------------------ */
+
+function pollutant(
+  s,
+  names
+) {
+
+  return firstValue(
+    s,
+    names
+  );
+
+}
+
+
+/* ------------------------------------------------------------
+   Create station marker
+------------------------------------------------------------ */
+
+function drawAQStation(
+  station
+) {
+
+  aqStationLayer.clearLayers();
+
+  aqStationMarker = null;
+
+
+  if (!station)
+    return;
+
+
+  const lat =
+    stationLat(
+      station
+    );
+
+  const lng =
+    stationLng(
+      station
+    );
+
+
+  if (
+    lat == null ||
+    lng == null
+  )
+    return;
+
+
+  const aqi =
+    stationAQI(
+      station
+    );
+
+
+  const [
+    category,
+    bg,
+    fg
+  ] =
+    aqCategory(
+      aqi
+    );
+
+
+  const icon =
+    L.divIcon({
+
+      className: "",
+
+      iconSize: [
+        24,
+        24
+      ],
+
+      iconAnchor: [
+        12,
+        12
+      ],
+
+      html:
+        `<div
+          class="aq-station-marker aq-station-pulse"
+          style="background:${bg};border-color:#fff">
+        </div>`
+
+    });
+
+
+  aqStationMarker =
+    L.marker(
+      [lat, lng],
+      {
+        icon,
+        interactive: true
+      }
+    );
+
+
+  const distance =
+    distanceKm(
+      st.lat,
+      st.lng,
+      lat,
+      lng
+    );
+
+
+  aqStationMarker.bindPopup(
+    `
+      <strong>${stationName(station)}</strong>
+      <br>
+      AQI:
+      <strong>${aqi == null ? "—" : Math.round(aqi)}</strong>
+      <br>
+      ${category}
+      <br>
+      ${distance.toFixed(1)} km from selected point
+      <br>
+      <small>
+        Live monitoring station
+      </small>
+    `
+  );
+
+
+  aqStationMarker.addTo(
+    aqStationLayer
+  );
+
+}
+
+
+/* ------------------------------------------------------------
+   Render AQI box
+------------------------------------------------------------ */
+
+function renderAQ(
+  station
+) {
+
+  if (!station) {
+
+    $("aq-body").innerHTML =
+      `
+        <div class="aq-error">
+          No nearby monitoring station was found.
+        </div>
+      `;
+
+    return;
+
+  }
+
+
+  const lat =
+    stationLat(
+      station
+    );
+
+  const lng =
+    stationLng(
+      station
+    );
+
+
+  const aqi =
+    stationAQI(
+      station
+    );
+
+
+  const [
+    category,
+    bg,
+    fg
+  ] =
+    aqCategory(
+      aqi
+    );
+
+
+  const distance =
+    (
+      lat != null &&
+      lng != null
+    )
+      ? distanceKm(
+          st.lat,
+          st.lng,
+          lat,
+          lng
+        )
+      : null;
+
+
+  const pm25 =
+    pollutant(
+      station,
+      [
+        "pm25",
+        "pm2_5",
+        "PM2.5",
+        "PM25"
+      ]
+    );
+
+
+  const pm10 =
+    pollutant(
+      station,
+      [
+        "pm10",
+        "PM10"
+      ]
+    );
+
+
+  const no2 =
+    pollutant(
+      station,
+      [
+        "no2",
+        "NO2",
+        "nitrogen_dioxide"
+      ]
+    );
+
+
+  const so2 =
+    pollutant(
+      station,
+      [
+        "so2",
+        "SO2",
+        "sulphur_dioxide",
+        "sulfur_dioxide"
+      ]
+    );
+
+
+  const o3 =
+    pollutant(
+      station,
+      [
+        "o3",
+        "O3",
+        "ozone"
+      ]
+    );
+
+
+  const co =
+    pollutant(
+      station,
+      [
+        "co",
+        "CO",
+        "carbon_monoxide"
+      ]
+    );
+
+
+  const updated =
+    station.last_updated ||
+    station.lastUpdate ||
+    station.updated_at ||
+    station.updatedAt ||
+    station.time ||
+    station.timestamp ||
+    null;
+
+
+  const updatedText =
+    updated
+      ? new Date(
+          updated
+        ).toLocaleString(
+          "en-IN",
+          {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "2-digit",
+            month: "short"
+          }
+        )
+      : "Latest available reading";
+
+
+  const cells = [];
+
+
+  if (
+    pm25 != null
+  )
+    cells.push(
+      `<div>
+        PM2.5
+        <strong>${pm25.toFixed(1)}</strong>
+        µg/m³
+      </div>`
+    );
+
+
+  if (
+    pm10 != null
+  )
+    cells.push(
+      `<div>
+        PM10
+        <strong>${pm10.toFixed(1)}</strong>
+        µg/m³
+      </div>`
+    );
+
+
+  if (
+    no2 != null
+  )
+    cells.push(
+      `<div>
+        NO₂
+        <strong>${no2.toFixed(1)}</strong>
+        µg/m³
+      </div>`
+    );
+
+
+  if (
+    so2 != null
+  )
+    cells.push(
+      `<div>
+        SO₂
+        <strong>${so2.toFixed(1)}</strong>
+        µg/m³
+      </div>`
+    );
+
+
+  if (
+    o3 != null
+  )
+    cells.push(
+      `<div>
+        O₃
+        <strong>${o3.toFixed(1)}</strong>
+        µg/m³
+      </div>`
+    );
+
+
+  if (
+    co != null
+  )
+    cells.push(
+      `<div>
+        CO
+        <strong>${co.toFixed(1)}</strong>
+        µg/m³
+      </div>`
+    );
+
+
+  $("aq-body").innerHTML = `
+
+    <div class="aq-main">
+
+      <div
+        class="aq-num"
+        style="
+          background:${bg};
+          color:${fg};
+        "
+      >
+        ${
+          aqi == null
+            ? "—"
+            : Math.round(aqi)
+        }
+      </div>
+
+      <div class="aq-info">
+
+        <div class="aq-cat">
+          ${category}
+        </div>
+
+        <div class="aq-station">
+          ${stationName(station)}
+        </div>
+
+        ${
+          distance != null
+            ? `
+              <div class="hint">
+                ${distance.toFixed(1)}
+                km from your marker
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+
+    </div>
+
+    ${
+      cells.length
+        ? `
+          <div class="aq-grid">
+            ${cells.join("")}
+          </div>
+        `
+        : ""
+    }
+
+    <div class="aq-refresh">
+      Updated:
+      ${updatedText}
+    </div>
+
+    <div class="aq-refresh">
+      Refreshes automatically every 5 minutes
+    </div>
+
+    <div class="aq-source">
+      Source:
+      <a
+        href="https://www.aqi.in/"
+        target="_blank"
+        rel="noopener"
+      >
+        AQI.in
+      </a>
+      · nearest available monitoring station
+    </div>
+
+  `;
+
+}
+
+
+/* ------------------------------------------------------------
+   Fetch nearest AQI.in monitoring station
+------------------------------------------------------------ */
+
+async function fetchNearestAQI(
+  lat,
+  lng
+) {
+
+  /*
+   * AQI.in's monitoring API.
+   *
+   * The endpoint returns monitoring locations for a city.
+   * Mumbai is used because the map is specifically a Mumbai
+   * project.
+   */
+
+  const url =
+    AQI_API +
+    "/api/v1/getMonitorsByCity";
+
+
+  const res =
+    await fetch(
+      url,
+      {
+        method: "GET",
+
+        headers: {
+          "Accept":
+            "application/json",
+
+          "city":
+            "mumbai"
+        },
+
+        cache: "no-store"
+      }
+    );
+
+
+  if (!res.ok) {
+
+    throw new Error(
+      "AQI service replied " +
+      res.status
+    );
+
+  }
+
+
+  const json =
+    await res.json();
+
+
+  /*
+   * Different versions of the API have returned
+   * the station array under slightly different names.
+   */
+
+  const stations =
+    Array.isArray(json)
+      ? json
+
+      : Array.isArray(json.data)
+        ? json.data
+
+      : Array.isArray(json.results)
+        ? json.results
+
+      : Array.isArray(json.monitors)
+        ? json.monitors
+
+      : Array.isArray(json.locations)
+        ? json.locations
+
+      : [];
+
+
+  const valid =
+    stations
+      .map(
+        s => {
+
+          const slat =
+            stationLat(s);
+
+          const slng =
+            stationLng(s);
+
+          return {
+
+            raw: s,
+
+            lat: slat,
+
+            lng: slng,
+
+            distance:
+              (
+                slat != null &&
+                slng != null
+              )
+                ? distanceKm(
+                    lat,
+                    lng,
+                    slat,
+                    slng
+                  )
+                : Infinity
+
+          };
+
+        }
+      )
+      .filter(
+        s =>
+          s.lat != null &&
+          s.lng != null
+      )
+      .sort(
+        (a, b) =>
+          a.distance -
+          b.distance
+      );
+
+
+  if (!valid.length)
+    return null;
+
+
+  /*
+   * Only accept stations within 25 km.
+   *
+   * This prevents the interface from presenting a distant
+   * Mumbai station as though it were local.
+   */
+
+  const nearest =
+    valid.find(
+      s =>
+        s.distance <= 25
+    );
+
+
+  return nearest
+    ? nearest.raw
+    : null;
+
+}
+
+
+/* ------------------------------------------------------------
+   Load AQI
+------------------------------------------------------------ */
+
+async function loadAQ() {
+
+  const id =
+    ++aqId;
+
+
+  clearTimeout(
+    aqRefreshTimer
+  );
+
+
+  $("aq-body").innerHTML =
+    `
+      <div class="hint">
+        Finding the nearest monitoring station…
+      </div>
+    `;
+
+
+  try {
+
+    const station =
+      await fetchNearestAQI(
+        st.lat,
+        st.lng
+      );
+
+
+    if (
+      id !== aqId
+    )
+      return;
+
+
+    aqStation =
+      station;
+
+
+    if (!station) {
+
+      aqStationLayer.clearLayers();
+
+      renderAQ(null);
+
+      return;
+
+    }
+
+
+    renderAQ(
+      station
+    );
+
+
+    drawAQStation(
+      station
+    );
+
+
+  } catch (e) {
+
+    if (
+      id === aqId
+    ) {
+
+      $("aq-body").innerHTML =
+        `
+          <div class="aq-error">
+
+            Could not load nearby
+            air-quality data.
+
+            <div class="hint">
+              ${e.message}
+            </div>
+
+            <div class="aq-source">
+              Data source:
+              <a
+                href="https://www.aqi.in/"
+                target="_blank"
+                rel="noopener"
+              >
+                AQI.in
+              </a>
+            </div>
+
+          </div>
+        `;
+
+    }
+
+  }
+
+
+  /*
+   * Automatically refresh.
+   */
+
+  aqRefreshTimer =
+    setTimeout(
+      () =>
+        loadAQ(),
+      AQ_REFRESH
+    );
+
+}
+
+
+/* ============================================================
+   INITIALISE
+============================================================ */
+
+$("elev-layer").checked =
+  q.get("elev") === "1";
+
+
 sync();
+
 load();
+
 loadAQ();
+
 </script>
+
 </body>
 </html>
