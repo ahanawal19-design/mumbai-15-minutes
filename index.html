@@ -183,64 +183,40 @@ a {
   display: none;
 }
 
-/* ---------------- AQI PANEL ---------------- */
+/* ---------------- TEMPERATURE PANEL ---------------- */
 
-#aq h2 {
+#temperature h2 {
   font-size: 14px;
   margin: 0 0 8px;
 }
 
-.aq-main {
+.temp-main {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.aq-num {
-  min-width: 58px;
-  box-sizing: border-box;
-  text-align: center;
-  font-size: 26px;
+.temp-num {
+  font-size: 28px;
   font-weight: 700;
   line-height: 1;
-  padding: 10px 6px;
-  border-radius: 6px;
 }
 
-.aq-info {
+.temp-info {
   min-width: 0;
 }
 
-.aq-cat {
-  font-weight: 700;
-}
-
-.aq-station {
-  font-size: 13px;
-  margin-top: 2px;
-}
-
-.aq-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px 12px;
-  margin: 10px 0 4px;
+.temp-location {
   font-size: 13px;
 }
 
-.aq-source {
+.temp-meta {
   font-size: 11px;
   color: #6b7280;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
-.aq-refresh {
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: 3px;
-}
-
-.aq-error {
+.temp-error {
   color: #8a3b12;
   font-size: 13px;
 }
@@ -257,37 +233,6 @@ a {
   border: 1px solid #495057;
   color: #212529;
   white-space: nowrap;
-}
-
-/* ---------------- AQI STATION MARKER ---------------- */
-
-.aq-station-marker {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 3px solid white;
-  box-shadow: 0 1px 5px rgba(0,0,0,.45);
-}
-
-.aq-station-pulse {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  animation: aqpulse 2s infinite;
-}
-
-@keyframes aqpulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(11,110,138,.35);
-  }
-
-  70% {
-    box-shadow: 0 0 0 10px rgba(11,110,138,0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(11,110,138,0);
-  }
 }
 
 :focus-visible {
@@ -375,14 +320,14 @@ a {
 
   <div id="lstatus" role="status"></div>
 
-  <!-- ================= AQI ================= -->
+  <!-- ================= TEMPERATURE ================= -->
 
-  <section class="grp" id="aq" aria-live="polite">
+  <section class="grp" id="temperature" aria-live="polite">
 
-    <h2>Nearby air quality</h2>
+    <h2>Local temperature</h2>
 
-    <div id="aq-body">
-      Loading nearby monitoring station…
+    <div id="temperature-body">
+      Loading local temperature…
     </div>
 
   </section>
@@ -411,10 +356,13 @@ a {
   </small>
 
   <small>
-    Air-quality values are estimated from current PM2.5 and PM10 data at
-    the selected map location using the Indian AQI breakpoint bands.
-    They are intended to make spatial differences within Mumbai visible,
-    rather than represent a direct monitoring-station measurement.
+    Temperature is provided by
+    <a href="https://open-meteo.com/"
+       target="_blank"
+       rel="noopener">
+      Open-Meteo
+    </a>
+    for the selected map location.
   </small>
 
 </div>
@@ -554,16 +502,6 @@ const extras =
 
 
 /* ============================================================
-   AQI STATION LAYER
-============================================================ */
-
-const aqStationLayer =
-  L.layerGroup().addTo(map);
-
-let aqStationMarker = null;
-
-
-/* ============================================================
    CONTROLS
 ============================================================ */
 
@@ -684,7 +622,7 @@ function setPoint(
 
   update();
 
-  loadAQ();
+  loadTemperature();
 
 }
 
@@ -2108,279 +2046,106 @@ $("elev-layer").addEventListener(
 
 
 /* ============================================================
-   LIVE AIR QUALITY — simple, key-free estimate
+   LIVE LOCAL TEMPERATURE — Open-Meteo
 ============================================================ */
 
-/*
- * The CPCB/data.gov.in endpoint is not reliably reachable directly
- * from a public GitHub Pages browser session. For this map, the goal
- * is simply to let viewers compare air quality at different points in
- * Mumbai. So the AQ panel now uses Open-Meteo's browser-accessible air
- * quality model, with no API key required.
- *
- * We request current PM2.5 and PM10 at the EXACT map location and
- * calculate an India-style AQI from those two pollutants. This is an
- * estimated/modelled AQI, not a reading from a physical sensor.
- */
+const WEATHER_API =
+  "https://api.open-meteo.com/v1/forecast";
 
-const AQ_API =
-  "https://air-quality-api.open-meteo.com/v1/air-quality";
+const WEATHER_REFRESH =
+  15 * 60 * 1000;
 
-const AQ_SOURCE_URL =
-  "https://open-meteo.com/en/docs/air-quality-api";
+let temperatureRequestId = 0;
+let temperatureRefreshTimer = null;
 
-const AQ_REFRESH =
-  60 * 60 * 1000;
+async function loadTemperature() {
 
-let aqId = 0;
-let aqRefreshTimer = null;
+  const id = ++temperatureRequestId;
 
+  clearTimeout(temperatureRefreshTimer);
 
-/* ------------------------------------------------------------
-   India AQI breakpoints for PM2.5 and PM10
------------------------------------------------------------- */
+  const body = $("temperature-body");
 
-const AQ_BREAKPOINTS = {
-
-  pm25: [
-    [0, 30, 0, 50],
-    [31, 60, 51, 100],
-    [61, 90, 101, 200],
-    [91, 120, 201, 300],
-    [121, 250, 301, 400],
-    [251, Infinity, 401, 500]
-  ],
-
-  pm10: [
-    [0, 50, 0, 50],
-    [51, 100, 51, 100],
-    [101, 250, 101, 200],
-    [251, 350, 201, 300],
-    [351, 430, 301, 400],
-    [431, Infinity, 401, 500]
-  ]
-};
-
-
-function subIndex(value, bands) {
-
-  if (!Number.isFinite(value)) return null;
-
-  for (const [cLo, cHi, iLo, iHi] of bands) {
-
-    if (value >= cLo && value <= cHi) {
-
-      return iLo +
-        ((value - cLo) / (cHi - cLo)) *
-        (iHi - iLo);
-    }
-  }
-
-  return 500;
-}
-
-
-function calculateSimpleAQI(pm25, pm10) {
-
-  const p25 = subIndex(pm25, AQ_BREAKPOINTS.pm25);
-  const p10 = subIndex(pm10, AQ_BREAKPOINTS.pm10);
-
-  const candidates = [p25, p10]
-    .filter(Number.isFinite);
-
-  return candidates.length
-    ? Math.round(Math.max(...candidates))
-    : null;
-}
-
-
-function aqCategory(aqi) {
-
-  if (!Number.isFinite(aqi))
-    return ["Unavailable", "#e5e7eb", "#111827"];
-
-  if (aqi <= 50)
-    return ["Good", "#d1fae5", "#065f46"];
-
-  if (aqi <= 100)
-    return ["Satisfactory", "#fef3c7", "#92400e"];
-
-  if (aqi <= 200)
-    return ["Moderate", "#fed7aa", "#9a3412"];
-
-  if (aqi <= 300)
-    return ["Poor", "#fecaca", "#991b1b"];
-
-  if (aqi <= 400)
-    return ["Very Poor", "#e9d5ff", "#6b21a8"];
-
-  return ["Severe", "#e5e7eb", "#111827"];
-}
-
-
-/* ------------------------------------------------------------
-   Get air quality at the EXACT selected map location
------------------------------------------------------------- */
-
-async function fetchNearestAQI(lat, lng) {
-
-  const params = new URLSearchParams({
-    latitude: lat.toFixed(5),
-    longitude: lng.toFixed(5),
-    current: "pm2_5,pm10",
-    timezone: "auto"
-  });
-
-  const res = await fetch(
-    AQ_API + "?" + params.toString(),
-    {
-      method: "GET",
-      mode: "cors",
-      cache: "no-store"
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error("Air-quality service replied " + res.status + ".");
-  }
-
-  const json = await res.json();
-  const current = json.current || {};
-
-  const pm25 = Number(current.pm2_5);
-  const pm10 = Number(current.pm10);
-  const aqi = calculateSimpleAQI(pm25, pm10);
-
-  return {
-    aqi,
-    pm25,
-    pm10,
-    time: current.time || null,
-    latitude: lat,
-    longitude: lng
-  };
-}
-
-
-/* ------------------------------------------------------------
-   Render AQI panel
------------------------------------------------------------- */
-
-function renderAQ(station) {
-
-  if (!station) {
-
-    $("aq-body").innerHTML = `
-      <div class="aq-error">Air-quality data is unavailable here.</div>
-    `;
-
-    return;
-  }
-
-  const aqi = station.aqi;
-  const [category, bg, fg] = aqCategory(aqi);
-
-  let updatedText = "Latest modelled value";
-
-  if (station.time) {
-
-    const parsed = new Date(station.time);
-
-    updatedText =
-      isNaN(parsed.getTime())
-        ? String(station.time)
-        : parsed.toLocaleString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            day: "2-digit",
-            month: "short"
-          });
-  }
-
-  $("aq-body").innerHTML = `
-
-    <div class="aq-main">
-
-      <div class="aq-num" style="background:${bg};color:${fg};">
-        ${aqi == null ? "—" : aqi}
-      </div>
-
-      <div class="aq-info">
-        <div class="aq-cat">${category}</div>
-        <div class="aq-station">At selected location</div>
-        <div class="hint">Updates with the map marker</div>
-      </div>
-
-    </div>
-
-    <div class="aq-refresh">
-      PM2.5: ${Number.isFinite(station.pm25) ? station.pm25.toFixed(1) : "—"} µg/m³
-      &nbsp; · &nbsp;
-      PM10: ${Number.isFinite(station.pm10) ? station.pm10.toFixed(1) : "—"} µg/m³
-    </div>
-
-    <div class="aq-refresh">
-      ${escapeHTML(updatedText)} · refreshes every hour
-    </div>
-
-    <div class="aq-source">
-      Source:
-      <a href="${AQ_SOURCE_URL}" target="_blank" rel="noopener">
-        Open-Meteo air-quality model
-      </a>
-    </div>
-
-    <div class="aq-source">
-      AQI is an estimate calculated from PM2.5 and PM10 using the
-      Indian AQI breakpoint bands. It is for comparing locations,
-      not a direct station measurement.
-    </div>
-
-  `;
-}
-
-
-/* ------------------------------------------------------------
-   Load AQI
------------------------------------------------------------- */
-
-async function loadAQ() {
-
-  const id = ++aqId;
-
-  clearTimeout(aqRefreshTimer);
-
-  $("aq-body").innerHTML = `
-    <div class="hint">Loading air quality…</div>
+  body.innerHTML = `
+    <div class="hint">Loading local temperature…</div>
   `;
 
   try {
 
-    const result = await fetchNearestAQI(
-      st.lat,
-      st.lng
+    const params = new URLSearchParams({
+      latitude: st.lat.toFixed(5),
+      longitude: st.lng.toFixed(5),
+      current: "temperature_2m,apparent_temperature",
+      timezone: "auto",
+      temperature_unit: "celsius"
+    });
+
+    const response = await fetch(
+      WEATHER_API + "?" + params.toString(),
+      {
+        mode: "cors",
+        headers: { Accept: "application/json" },
+        cache: "no-store"
+      }
     );
 
-    if (id !== aqId) return;
+    if (!response.ok) {
+      throw new Error(`Weather request failed (${response.status})`);
+    }
 
-    renderAQ(result);
+    const data = await response.json();
+
+    if (id !== temperatureRequestId) return;
+
+    const current = data.current || {};
+    const units = data.current_units || {};
+    const temperature = Number(current.temperature_2m);
+    const apparent = Number(current.apparent_temperature);
+
+    if (!Number.isFinite(temperature)) {
+      throw new Error("No current temperature was returned for this location.");
+    }
+
+    const tempText = `${Math.round(temperature)}°C`;
+    const feelsText = Number.isFinite(apparent)
+      ? `Feels like ${Math.round(apparent)}°C`
+      : "";
+
+    const updated = current.time
+      ? new Date(current.time).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit"
+        })
+      : "";
+
+    body.innerHTML = `
+      <div class="temp-main">
+        <div class="temp-num">${tempText}</div>
+        <div class="temp-info">
+          <div class="temp-location">At your selected location</div>
+          <div class="temp-meta">
+            ${escapeHTML(feelsText)}${updated ? ` · Updated ${escapeHTML(updated)}` : ""}
+          </div>
+        </div>
+      </div>
+    `;
 
   } catch (e) {
 
-    if (id === aqId) {
-
-      $("aq-body").innerHTML = `
-        <div class="aq-error">
-          Could not load air-quality data.
-          <div class="hint">${escapeHTML(String(e.message || e))}</div>
+    if (id === temperatureRequestId) {
+      body.innerHTML = `
+        <div class="temp-error">
+          Could not load the local temperature.
+          <div class="hint">${escapeHTML(e.message || String(e))}</div>
         </div>
       `;
     }
+
   }
 
-  aqRefreshTimer = setTimeout(
-    () => loadAQ(),
-    AQ_REFRESH
+  temperatureRefreshTimer = setTimeout(
+    () => loadTemperature(),
+    WEATHER_REFRESH
   );
 }
 
@@ -2397,7 +2162,7 @@ sync();
 
 load();
 
-loadAQ();
+loadTemperature();
 
 </script>
 
