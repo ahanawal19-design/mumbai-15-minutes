@@ -2080,14 +2080,23 @@ async function loadTemperature() {
       temperature_unit: "celsius"
     });
 
-    const response = await fetch(
-      WEATHER_API + "?" + params.toString(),
-      {
-        mode: "cors",
-        headers: { Accept: "application/json" },
-        cache: "no-store"
-      }
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    let response;
+    try {
+      response = await fetch(
+        WEATHER_API + "?" + params.toString(),
+        {
+          mode: "cors",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal
+        }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       throw new Error(`Weather request failed (${response.status})`);
@@ -2124,7 +2133,7 @@ async function loadTemperature() {
         <div class="temp-info">
           <div class="temp-location">At your selected location</div>
           <div class="temp-meta">
-            ${escapeHTML(feelsText)}${updated ? ` · Updated ${escapeHTML(updated)}` : ""}
+            ${feelsText}${updated ? ` · Updated ${updated}` : ""}
           </div>
         </div>
       </div>
@@ -2133,10 +2142,15 @@ async function loadTemperature() {
   } catch (e) {
 
     if (id === temperatureRequestId) {
+      const message =
+        e && e.name === "AbortError"
+          ? "Weather service timed out. It will try again in 15 minutes."
+          : (e.message || String(e));
+
       body.innerHTML = `
         <div class="temp-error">
           Could not load the local temperature.
-          <div class="hint">${escapeHTML(e.message || String(e))}</div>
+          <div class="hint">${message}</div>
         </div>
       `;
     }
