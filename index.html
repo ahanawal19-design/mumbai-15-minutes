@@ -8,8 +8,6 @@
 <style>
   html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
-  #google-map { position: absolute; inset: 0; z-index: 0; visibility: hidden; }
-  #google-map.on { visibility: visible; }
   #map { position: relative; z-index: 1; height: 100%; background: transparent; }
 
   #panel {
@@ -65,7 +63,6 @@
 </head>
 <body>
 
-<div id="google-map"></div>
 <div id="map"></div>
 
 <div id="panel">
@@ -98,7 +95,8 @@
   <section class="grp" id="compare">
     <h2>Compare with traffic</h2>
     <label class="opt"><input type="checkbox" id="traffic-layer"> Show live traffic <span class="n" id="n-traffic"></span></label>
-    <div class="hint">Green, orange and red roads run from free-flowing to slow.</div>
+    <div class="hint">Real-time speeds from TomTom, sampled on roads near the streets you can reach. Green, orange and red run from free-flowing to slow.</div>
+    <div class="hint" id="traffic-stats"></div>
 
     <label for="fade">Walking lines: <span id="fadev"></span>%</label>
     <input type="range" id="fade" min="10" max="100" step="5">
@@ -120,97 +118,20 @@
     <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.
   </small>
   <small>
-    Temperature is provided by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+    Traffic data &copy; TomTom. Temperature is provided by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
     for the selected map location. All times are Indian Standard Time (IST, UTC+5:30),
     whatever your device's time zone is.
   </small>
 </div>
 
 <script>
-  /* GOOGLE MAPS TRAFFIC UNDERLAY
-     Replace the placeholder below with your Google Maps JavaScript API key.
-     The key should be restricted to this site's domain.
-     With neither key set, the traffic checkbox explains that a key is needed. */
-  const GOOGLE_MAPS_API_KEY = "GOOGLE_MAPS_API_KEY";
-  const hasGoogleKey = () => !!GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== "GOOGLE_MAPS_API_KEY";
-
-  /* ALTERNATIVE (no Google account needed): TomTom live traffic tiles, drawn on this same map.
-     Get a key at developer.tomtom.com, restrict it to this site's domain, and paste it below.
-     If both keys are set, Google is used. */
+  /* TOMTOM LIVE TRAFFIC DATA
+     Paste your TomTom API key below and restrict it to this site's domain in the TomTom dashboard. */
   const TOMTOM_API_KEY = "HTl5p4nY5Ri2NLyEZbkgnvp1pQjPOUay";
   const hasTomTomKey = () => !!TOMTOM_API_KEY && TOMTOM_API_KEY !== "TOMTOM_API_KEY";
-
-  let googleMap = null;
-  let googleTraffic = null;
-  let googleMapsReady = null;
-
-  /* Google calls this if the key is invalid or referrer-restricted. */
-  window.gm_authFailure = () => {
-    document.getElementById("traffic-layer").checked = false;
-    document.getElementById("google-map").classList.remove("on");
-    if (!map.hasLayer(osmTiles)) osmTiles.addTo(map);
-    setL("Google rejected the API key. Check its referrer restrictions and enabled APIs.");
-  };
-
-  function loadGoogleMaps() {
-    if (googleMapsReady) return googleMapsReady;
-    googleMapsReady = new Promise((resolve, reject) => {
-      if (!hasGoogleKey()) {
-        reject(new Error("Add your Google Maps JavaScript API key first."));
-        return;
-      }
-      window.__googleMapsTrafficReady = resolve;
-      const script = document.createElement("script");
-      script.src = "https://maps.googleapis.com/maps/api/js" +
-        "?key=" + encodeURIComponent(GOOGLE_MAPS_API_KEY) +
-        "&callback=__googleMapsTrafficReady&loading=async";
-      script.async = true;
-      script.defer = true;
-      script.onerror = () => { googleMapsReady = null; reject(new Error("Google Maps JavaScript API could not load.")); };
-      document.head.appendChild(script);
-    });
-    return googleMapsReady;
-  }
-
-  async function initGoogleTraffic() {
-    const el = document.getElementById("google-map");
-    try {
-      await loadGoogleMaps();
-      const { Map: GMap, TrafficLayer } = await google.maps.importLibrary("maps");
-
-      googleMap = new GMap(el, {
-        center: { lat: st.lat, lng: st.lng },
-        zoom: st.z,
-        disableDefaultUI: true,
-        gestureHandling: "none",
-        clickableIcons: false,
-        keyboardShortcuts: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        mapTypeControl: false
-      });
-
-      googleTraffic = new TrafficLayer();
-      return true;
-
-    } catch (e) {
-      console.warn("Google traffic layer:", e.message || e);
-      googleMap = null;
-      googleTraffic = null;
-      setL("Live traffic could not load: " + (e.message || e));
-      return false;
-    }
-  }
-
-  function syncGoogleMap() {
-    if (!googleMap || !document.getElementById("traffic-layer").checked) return;
-    const c = map.getCenter();
-    googleMap.moveCamera({
-      center: { lat: c.lat, lng: c.lng },
-      zoom: map.getZoom()
-    });
-  }
 </script>
+
+<script src="https://cdnjs</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
@@ -266,24 +187,6 @@ const marker = L.marker([st.lat, st.lng], { draggable: true }).addTo(map);
 const layers = L.layerGroup().addTo(map);
 const extras = L.layerGroup().addTo(map);
 
-/* TomTom live traffic: transparent tiles layered over the base map, under the walking lines. */
-const tomtom = hasTomTomKey()
-  ? L.tileLayer("https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=" +
-      encodeURIComponent(TOMTOM_API_KEY),
-      { maxZoom: 19, opacity: 0.9, attribution: "Traffic &copy; TomTom" })
-  : null;
-
-/* If TomTom rejects the tiles, say so in the panel instead of failing silently. */
-let tomtomErrShown = false;
-if (tomtom) {
-  tomtom.on("tileerror", () => {
-    if (tomtomErrShown) return;
-    tomtomErrShown = true;
-    setL("TomTom traffic tiles failed to load. Check the key, that the Traffic API is enabled on it, and the domain whitelist.");
-    console.warn("TomTom tile error. Open a tile URL directly in a new tab to see TomTom's error message.");
-  });
-  tomtom.on("tileload", () => { tomtomErrShown = false; });
-}
 
 /* ---------------- CONTROLS ---------------- */
 $("city").innerHTML = '<option value="">Custom point</option>' +
@@ -321,7 +224,6 @@ function setStatus(t) { $("status").textContent = t; }
 function update() {
   sync();
   writeHash();
-  syncGoogleMap();
   load();
 }
 
@@ -336,8 +238,7 @@ function setPoint(lat, lng, keepPreset) {
 
 map.on("click", e => setPoint(e.latlng.lat, e.latlng.lng));
 marker.on("dragend", () => { const p = marker.getLatLng(); setPoint(p.lat, p.lng); });
-map.on("zoomend", () => { writeHash(); syncGoogleMap(); });
-map.on("move", syncGoogleMap);
+map.on("zoomend", writeHash);
 
 $("city").addEventListener("change", e => {
   const c = PRESETS[e.target.value];
@@ -550,6 +451,7 @@ function render() {
   const off = Math.round(hav(st.lat, st.lng, sp[0], sp[1]));
   run = { me };
   scheduleElev();
+  scheduleTraffic();
   setStatus(off > 75 ? `Started from the nearest connected street, ${off} m from your point.` : "");
 }
 
@@ -761,58 +663,117 @@ $("fade").addEventListener("input", e => {
   writeHash();
 });
 
-/* ---------------- LIVE TRAFFIC SWITCH ---------------- */
-async function setTraffic() {
-  const box = $("traffic-layer");
+/* ---------------- LIVE TRAFFIC DATA (TomTom Flow Segment Data) ----------------
+   Samples real current/free-flow speeds (km/h) at points spread over the reachable area.
+   Each sample is one API request, so results are cached for 5 minutes and capped. */
+const FLOW_API = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json";
+const TRAFFIC_TTL = 5 * 60 * 1000, TRAFFIC_MAX = 16;
+const trafficBox = $("traffic-layer");
+const setT = t => { $("traffic-stats").textContent = t; };
+map.createPane("traffic").style.zIndex = 350;   // below the walking lines (400)
+const trafficLayer = L.layerGroup().addTo(map);
+const trafficCache = new Map();
+let trafficId = 0, trafficTimer = null;
 
-  // No Google key: use TomTom tiles on this same map, or explain that a key is needed.
-  if (!hasGoogleKey()) {
-    if (!tomtom) {
-      if (box.checked) {
-        box.checked = false;
-        setL("Live traffic needs a free map key (TomTom or Google). See the comment at the top of the script.");
+const trafficColor = r => r >= 0.8 ? "#1a9850" : r >= 0.55 ? "#fdae61" : r >= 0.3 ? "#f46d43" : "#a50026";
+
+function trafficPoints() {
+  const g = data.g, dLat = 400 / 111320, dLng = dLat / Math.cos(st.lat * Math.PI / 180);
+  const seen = new Set(), out = [];
+  for (const id of run.me.keys()) {
+    const p = g.nodes.get(id), key = Math.floor(p[0] / dLat) + "," + Math.floor(p[1] / dLng);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+    if (out.length >= TRAFFIC_MAX) break;
+  }
+  return out;
+}
+
+async function fetchFlow(p) {
+  const key = p[0].toFixed(4) + "," + p[1].toFixed(4), hit = trafficCache.get(key);
+  if (hit && Date.now() - hit.t < TRAFFIC_TTL) return hit.seg;
+  const res = await fetch(FLOW_API + "?key=" + encodeURIComponent(TOMTOM_API_KEY) +
+    "&point=" + p[0].toFixed(5) + "," + p[1].toFixed(5));
+  if (res.status === 400 || res.status === 404) {          // no road with traffic data nearby
+    trafficCache.set(key, { t: Date.now(), seg: null });
+    return null;
+  }
+  if (!res.ok) { const e = new Error("TomTom replied " + res.status); e.status = res.status; throw e; }
+  const f = (await res.json()).flowSegmentData;
+  const c = f && f.coordinates && f.coordinates.coordinate;
+  const seg = Array.isArray(c) && c.length > 1
+    ? { cur: f.currentSpeed, free: f.freeFlowSpeed, pts: c.map(x => [x.latitude, x.longitude]) }
+    : null;
+  trafficCache.set(key, { t: Date.now(), seg });
+  return seg;
+}
+
+async function showTraffic() {
+  const id = ++trafficId;
+  trafficLayer.clearLayers();
+  if (!trafficBox.checked) { setT(""); return; }
+  if (!data || !run) return;                                // render() will call us again
+
+  const pts = trafficPoints(), seen = new Set(), segs = [];
+  let n = 0;
+  for (const p of pts) {
+    setT("Sampling TomTom traffic… " + (++n) + "/" + pts.length);
+    let seg;
+    try { seg = await fetchFlow(p); }
+    catch (e) {
+      if (id === trafficId) {
+        setT(e.status === 403 ? "TomTom rejected the key (403). Check the Traffic API product and the domain whitelist."
+          : e.status === 429 ? "TomTom rate or daily limit reached. Try again later."
+          : "Could not load traffic: " + e.message);
       }
-    } else if (box.checked) {
-      tomtom.addTo(map);
-      setL("");
-    } else {
-      map.removeLayer(tomtom);
+      return;
     }
-    writeHash();
-    return;
+    if (id !== trafficId) return;
+    if (!seg || !(seg.free > 0)) continue;
+    const k = seg.pts[0] + "|" + seg.pts[seg.pts.length - 1];
+    if (seen.has(k)) continue;
+    seen.add(k);
+    segs.push(seg);
+    L.polyline(seg.pts, { pane: "traffic", color: trafficColor(seg.cur / seg.free),
+      weight: 7, opacity: 0.9, interactive: false }).addTo(trafficLayer);
+    await new Promise(r => setTimeout(r, 220));             // stay under TomTom's rate limit
   }
+  if (id !== trafficId) return;
+  if (!segs.length) { setT("No TomTom traffic data found near these streets."); return; }
+  const avg = k => Math.round(segs.reduce((a, s) => a + s[k], 0) / segs.length);
+  const now = new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
+  setT(segs.length + " road segments · traffic moving at " + avg("cur") + " km/h on average (free-flow " +
+    avg("free") + " km/h) · you walk at " + (st.spd * 3.6).toFixed(1) + " km/h · " + now + " IST");
+}
 
-  if (box.checked && !googleMap) {
-    setN("traffic", "loading…");
-    const ok = await initGoogleTraffic();
-    setN("traffic", "");
-    if (!ok) { box.checked = false; writeHash(); return; }
-  }
-  const show = box.checked && !!googleMap;
-  if (googleTraffic) googleTraffic.setMap(show ? googleMap : null);
-  $("google-map").classList.toggle("on", show);
-  if (show) {
-    map.removeLayer(osmTiles);
-    syncGoogleMap();
-  } else if (!map.hasLayer(osmTiles)) {
-    osmTiles.addTo(map);
+function scheduleTraffic() {
+  if (!trafficBox.checked) return;
+  clearTimeout(trafficTimer);
+  trafficTimer = setTimeout(() => showTraffic().catch(e => setT("Could not load traffic: " + e.message)), 1200);
+}
+
+trafficBox.addEventListener("change", () => {
+  if (trafficBox.checked && !hasTomTomKey()) {
+    trafficBox.checked = false;
+    setT("Live traffic needs a TomTom API key (see TOMTOM_API_KEY in the code).");
+  } else {
+    clearTimeout(trafficTimer);
+    showTraffic().catch(e => setT("Could not load traffic: " + e.message));
   }
   writeHash();
-}
-$("traffic-layer").addEventListener("change", setTraffic);
+});
 $("retry").addEventListener("click", () => { $("retry").hidden = true; load(); });
 
 /* ---------------- INITIALISE ---------------- */
 $("elev-layer").checked = q.get("elev") === "1";
 
-const trafficAvailable = hasGoogleKey() || hasTomTomKey();
-if (!trafficAvailable) setN("traffic", "key needed");
-$("traffic-layer").checked = trafficAvailable && q.get("traf") === "1";
+if (!hasTomTomKey()) setN("traffic", "key needed");
+$("traffic-layer").checked = hasTomTomKey() && q.get("traf") === "1";
 
 sync();
 load();
 loadTemperature();
-if ($("traffic-layer").checked) setTraffic();
 </script>
 
 </body>
