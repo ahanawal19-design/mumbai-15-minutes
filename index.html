@@ -31,6 +31,7 @@
   #grey i { display: inline-block; width: 24px; height: 4px; background: #9aa0a6; border-radius: 2px; }
   #status { color: #52606d; margin: 0 0 10px; }
   #status:empty { display: none; }
+  #retry { margin: 0 0 10px; }
   #stats { margin-top: 12px; }
   #stats div + div { margin-top: 2px; }
   small { display: block; color: #52606d; font-size: 12px; margin-top: 10px; }
@@ -71,6 +72,7 @@
   <h1>15 minutes in Mumbai. For whom?</h1>
   <p>Click the map or drag the marker. Coloured streets are what you can reach on foot with your settings.</p>
   <div id="status" role="status"></div>
+  <button id="retry" hidden>Try loading streets again</button>
 
   <label for="city">Start from</label>
   <select id="city"></select>
@@ -213,7 +215,7 @@ const PRESETS = {
 
 const COLORS = ["#0b6e4f", "#2a9d8f", "#8ab17d", "#e9c46a", "#f4a261", "#e76f51"];
 const GREY = "#9aa0a6";
-const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
 
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString("en-IN");
@@ -331,20 +333,23 @@ function hav(a, b, c, d) {
 }
 
 async function fetchNet(lat, lng, r) {
+  // Street geometry only (no names or other tags) and no parking aisles or driveways,
+  // which keeps the download much smaller in dense areas.
   const query =
-    `[out:json][timeout:30];` +
+    `[out:json][timeout:60];(` +
     `way["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|footway|path|steps|track)$"]` +
-    `["foot"!="no"]["access"!="private"](around:${r},${lat},${lng});` +
-    `out body;>;out skel qt;`;
+    `["foot"!="no"]["access"!="private"]["service"!~"^(parking_aisle|driveway|drive-through)$"]` +
+    `(around:${r},${lat},${lng});>;);out skel qt;`;
   return overpass(query);
 }
 
 async function overpass(query) {
   let err;
   for (let attempt = 0; attempt < 2; attempt++) {
+    let allSlow = true;
     for (const url of ENDPOINTS) {
       const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 25000);
+      const timer = setTimeout(() => ctl.abort(), 55000);
       try {
         const res = await fetch(url, {
           method: "POST",
@@ -356,10 +361,12 @@ async function overpass(query) {
         return await res.json();
       } catch (e) {
         err = e;
+        if (e.name !== "AbortError") allSlow = false;
       } finally {
         clearTimeout(timer);
       }
     }
+    if (allSlow) break;
     await new Promise(done => setTimeout(done, 3000));
   }
   throw err;
@@ -503,7 +510,7 @@ function render() {
 }
 
 async function load() {
-  const id = ++reqId, r = 1.8 * 15 * 60 + 100;
+  const id = ++reqId, r = 1.8 * st.min * 60 + 100;
   if (data && data.lat === st.lat && data.lng === st.lng && data.r >= r) { render(); return; }
 
   layers.clearLayers();
@@ -511,6 +518,7 @@ async function load() {
   run = null;
   setL("");
   $("reach").textContent = "…";
+  $("retry").hidden = true;
   setStatus("Loading street network…");
 
   try {
@@ -521,7 +529,8 @@ async function load() {
   } catch (e) {
     if (id === reqId) {
       setStatus("Could not load street data (" + (e.name === "AbortError" ? "timed out" : e.message) +
-        "). Wait a moment, then pick the place again.");
+        "). The free OpenStreetMap servers are sometimes busy.");
+      $("retry").hidden = false;
     }
   }
 }
@@ -720,6 +729,7 @@ async function setTraffic() {
   writeHash();
 }
 $("traffic-layer").addEventListener("change", setTraffic);
+$("retry").addEventListener("click", () => { $("retry").hidden = true; load(); });
 
 /* ---------------- INITIALISE ---------------- */
 $("elev-layer").checked = q.get("elev") === "1";
