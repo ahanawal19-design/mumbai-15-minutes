@@ -8,7 +8,8 @@
 <style>
   html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
-  #google-map { position: absolute; inset: 0; z-index: 0; display: none; }
+  #google-map { position: absolute; inset: 0; z-index: 0; visibility: hidden; }
+  #google-map.on { visibility: visible; }
   #map { position: relative; z-index: 1; height: 100%; background: transparent; }
 
   #panel {
@@ -44,7 +45,7 @@
   #lstatus:empty { display: none; }
 
   /* temperature panel */
-  #temperature h2 { font-size: 14px; margin: 0 0 8px; }
+  #temperature h2, #compare h2 { font-size: 14px; margin: 0 0 8px; }
   .temp-main { display: flex; align-items: center; gap: 10px; }
   .temp-num { font-size: 28px; font-weight: 700; line-height: 1; }
   .temp-info { min-width: 0; }
@@ -91,6 +92,16 @@
 
   <label class="opt"><input type="checkbox" id="elev-layer"> Show ground elevation (m) <span class="n" id="n-elev"></span></label>
   <div id="lstatus" role="status"></div>
+
+  <section class="grp" id="compare">
+    <h2>Compare with traffic</h2>
+    <label class="opt"><input type="checkbox" id="traffic-layer"> Show live traffic (Google) <span class="n" id="n-traffic"></span></label>
+    <div class="hint">Green, orange and red roads run from free-flowing to slow.</div>
+
+    <label for="fade">Walking lines: <span id="fadev"></span>%</label>
+    <input type="range" id="fade" min="10" max="100" step="5">
+    <div class="hint">Lower this to see the traffic colours through the walking lines.</div>
+  </section>
 
   <section class="grp" id="temperature" aria-live="polite">
     <h2>Local temperature</h2>
@@ -161,21 +172,19 @@
       });
 
       googleTraffic = new TrafficLayer();
-      googleTraffic.setMap(googleMap);
-
-      el.style.display = "block";
-      osmTiles.setOpacity(0);
-      syncGoogleMap();
+      return true;
 
     } catch (e) {
       console.warn("Google traffic layer:", e.message || e);
-      el.style.display = "none";
-      osmTiles.setOpacity(1);
+      googleMap = null;
+      googleTraffic = null;
+      setL("Live traffic could not load: " + (e.message || e));
+      return false;
     }
   }
 
   function syncGoogleMap() {
-    if (!googleMap) return;
+    if (!googleMap || !document.getElementById("traffic-layer").checked) return;
     const c = map.getCenter();
     googleMap.moveCamera({
       center: { lat: c.lat, lng: c.lng },
@@ -220,6 +229,7 @@ const st = {
   lng: parseFloat(q.get("lng")) || 72.8478,
   min: Math.min(15, Math.max(5, parseInt(q.get("min")) || 15)),
   spd: parseFloat(q.get("spd")) || 1.4,
+  fade: Math.min(100, Math.max(10, parseInt(q.get("fade")) || 100)),
   z: parseInt(q.get("z")) || 14
 };
 
@@ -248,6 +258,8 @@ function sync() {
   $("spd").value = st.spd;
   $("spdv").textContent = st.spd.toFixed(1);
   $("lmax").textContent = st.min + " min";
+  $("fade").value = st.fade;
+  $("fadev").textContent = st.fade;
   $("statmin").textContent = st.min;
   $("walked").textContent = fmt(Math.round(st.spd * st.min * 60)) + " m";
 }
@@ -259,6 +271,8 @@ function writeHash() {
     min: st.min,
     spd: st.spd,
     elev: $("elev-layer").checked ? 1 : 0,
+    traf: $("traffic-layer").checked ? 1 : 0,
+    fade: st.fade,
     z: map.getZoom()
   });
   history.replaceState(null, "", "#" + p.toString());
@@ -474,9 +488,10 @@ function render() {
     }
   }
 
-  L.polyline(grey, { color: GREY, weight: 3, opacity: 0.85, interactive: false }).addTo(layers);
+  const f = st.fade / 100;
+  L.polyline(grey, { color: GREY, weight: 3, opacity: 0.85 * f, baseOpacity: 0.85, interactive: false }).addTo(layers);
   bins.forEach((lines, i) =>
-    L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95, interactive: false }).addTo(layers));
+    L.polyline(lines, { color: COLORS[i], weight: 4, opacity: 0.95 * f, baseOpacity: 0.95, interactive: false }).addTo(layers));
 
   $("reach").textContent = fmt(Math.round(reachM)) + " m";
 
@@ -676,13 +691,50 @@ async function loadTemperature() {
   temperatureRefreshTimer = setTimeout(() => loadTemperature(), WEATHER_REFRESH);
 }
 
+/* ---------------- WALKING-LINE FADE ---------------- */
+$("fade").addEventListener("input", e => {
+  st.fade = +e.target.value;
+  $("fadev").textContent = st.fade;
+  layers.eachLayer(l => l.setStyle({ opacity: l.options.baseOpacity * st.fade / 100 }));
+  writeHash();
+});
+
+/* ---------------- LIVE TRAFFIC SWITCH ---------------- */
+async function setTraffic() {
+  const box = $("traffic-layer");
+  if (box.checked && !googleMap) {
+    setN("traffic", "loading…");
+    const ok = await initGoogleTraffic();
+    setN("traffic", "");
+    if (!ok) { box.checked = false; writeHash(); return; }
+  }
+  const show = box.checked && !!googleMap;
+  if (googleTraffic) googleTraffic.setMap(show ? googleMap : null);
+  $("google-map").classList.toggle("on", show);
+  if (show) {
+    map.removeLayer(osmTiles);
+    syncGoogleMap();
+  } else if (!map.hasLayer(osmTiles)) {
+    osmTiles.addTo(map);
+  }
+  writeHash();
+}
+$("traffic-layer").addEventListener("change", setTraffic);
+
 /* ---------------- INITIALISE ---------------- */
 $("elev-layer").checked = q.get("elev") === "1";
+
+const trafficKeyMissing = !GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "GOOGLE_MAPS_API_KEY";
+if (trafficKeyMissing) {
+  $("traffic-layer").disabled = true;
+  setN("traffic", "add a Google key");
+}
+$("traffic-layer").checked = !trafficKeyMissing && q.get("traf") === "1";
 
 sync();
 load();
 loadTemperature();
-initGoogleTraffic();
+if ($("traffic-layer").checked) setTraffic();
 </script>
 
 </body>
