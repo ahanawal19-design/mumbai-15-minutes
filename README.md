@@ -1,1 +1,1 @@
-# mumbai-15-minutes
+# mumbai-in-minutes
