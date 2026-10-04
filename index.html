@@ -131,8 +131,6 @@
   const hasTomTomKey = () => !!TOMTOM_API_KEY && TOMTOM_API_KEY !== "TOMTOM_API_KEY";
 </script>
 
-<script src="https://cdnjs</script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
 <script>
@@ -693,6 +691,7 @@ function trafficPoints() {
 async function fetchFlow(p) {
   const key = p[0].toFixed(4) + "," + p[1].toFixed(4), hit = trafficCache.get(key);
   if (hit && Date.now() - hit.t < TRAFFIC_TTL) return hit.seg;
+  await new Promise(r => setTimeout(r, 220));               // space out real requests (TomTom rate limit)
   const res = await fetch(FLOW_API + "?key=" + encodeURIComponent(TOMTOM_API_KEY) +
     "&point=" + p[0].toFixed(5) + "," + p[1].toFixed(5));
   if (res.status === 400 || res.status === 404) {          // no road with traffic data nearby
@@ -737,7 +736,6 @@ async function showTraffic() {
     segs.push(seg);
     L.polyline(seg.pts, { pane: "traffic", color: trafficColor(seg.cur / seg.free),
       weight: 7, opacity: 0.9, interactive: false }).addTo(trafficLayer);
-    await new Promise(r => setTimeout(r, 220));             // stay under TomTom's rate limit
   }
   if (id !== trafficId) return;
   if (!segs.length) { setT("No TomTom traffic data found near these streets."); return; }
